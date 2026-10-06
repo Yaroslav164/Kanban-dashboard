@@ -1,0 +1,62 @@
+
+   INFO  Server running on [http://127.0.0.1:8000].  
+
+  Press Ctrl+C to stop the server
+
+  2026-10-04 16:19:45 /api/auth/login .......................................................................... ~ 3s
+  2026-10-04 16:19:48 /api/tasks ......................................................................... ~ 500.44ms
+  2026-10-04 16:25:31 /api/auth/login .......................................................................... ~ 1s
+  2026-10-04 16:25:32 /api/tasks ......................................................................... ~ 505.97ms
+  2026-10-04 16:25:32 /api/tasks ......................................................................... ~ 501.99ms
+  2026-10-04 16:25:33 /api/tasks/4 ....................................................................... ~ 499.83ms
+  2026-10-04 19:18:26 / ........................................................................................ ~ 6s
+  2026-10-04 19:18:33 /api/auth/login ...................................................................... ~ 0.09ms
+  2026-10-04 19:18:33 /api/auth/me ......................................................................... ~ 0.07ms
+  2026-10-04 19:18:34 /api/tasks ........................................................................... ~ 0.08ms
+  2026-10-04 19:22:18 / .................................................................................. ~ 504.78ms
+  2026-10-04 19:23:59 /api/auth/register ................................................................. ~ 504.03ms
+
+   INFO  Environment modified. Restarting server...  
+
+   INFO  Server running on [http://127.0.0.1:8000].  
+
+  Press Ctrl+C to stop the server
+
+  The environment file is invalid!
+  Failed to parse dotenv file. Encountered unexpected whitespace at [Task Manager].
+  2026-10-04 19:30:21 / .................................................................................. ~ 512.25ms
+  The environment file is invalid!
+  Failed to parse dotenv file. Encountered unexpected whitespace at [Task Manager].
+  2026-10-04 19:31:30 / .................................................................................... ~ 0.21ms
+  The environment file is invalid!
+  Failed to parse dotenv file. Encountered unexpected whitespace at [Task Manager].
+  2026-10-04 19:31:31 / .................................................................................... ~ 0.17ms
+  The environment file is invalid!
+  Failed to parse dotenv file. Encountered unexpected whitespace at [Task Manager].
+  2026-10-04 19:36:41 / .................................................................................... ~ 0.15ms
+  The environment file is invalid!
+  Failed to parse dotenv file. Encountered unexpected whitespace at [Task Manager].
+  2026-10-04 19:36:42 / .................................................................................... ~ 0.14ms
+  The environment file is invalid!
+  Failed to parse dotenv file. Encountered unexpected whitespace at [Task Manager].
+  2026-10-04 19:36:42 / .................................................................................... ~ 0.07ms
+  The environment file is invalid!
+  Failed to parse dotenv file. Encountered unexpected whitespace at [Task Manager].
+  2026-10-04 19:36:42 / .................................................................................... ~ 0.06ms
+  The environment file is invalid!
+  Failed to parse dotenv file. Encountered unexpected whitespace at [Task Manager].
+  2026-10-04 19:36:42 / .................................................................................... ~ 0.12ms
+  2026-10-04 19:30:22 ...................................................................................... ~ 7m 47s
+  The environment file is invalid!
+  Failed to parse dotenv file. Encountered unexpected whitespace at [Task Manager].
+  2026-10-04 19:38:10 / .................................................................................... ~ 0.13ms
+  2026-10-04 19:38:10 ...................................................................................... ~ 2m 31s
+  The environment file is invalid!
+  Failed to parse dotenv file. Encountered unexpected whitespace at [Task Manager].
+  2026-10-04 19:40:42 / .................................................................................... ~ 0.19ms
+  The environment file is invalid!
+  Failed to parse dotenv file. Encountered unexpected whitespace at [Task Manager].
+  2026-10-04 19:40:56 / .................................................................................... ~ 0.11ms
+  The environment file is invalid!
+  Failed to parse dotenv file. Encountered unexpected whitespace at [Task Manager].
+  2026-10-04 19:54:33 /api/auth/me ......................................................................... ~ 0.15ms
