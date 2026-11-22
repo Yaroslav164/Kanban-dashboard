@@ -8,7 +8,7 @@ vi.mock('./api', async (original) => ({
   request: vi.fn(),
 }))
 const api = vi.mocked(request)
-const summary = { id: 1, title: 'Work' }
+const summary = { id: 1, title: 'Work', role: 'owner' as const }
 const snapshot = { ...summary, columns: [{ id: 2, title: 'Queue', cards: [] }] }
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -30,7 +30,8 @@ describe('workspace store', () => {
   })
   it('reloads the board after a conflict and surfaces the failure', async () => {
     const store = useBoard()
-    store.selected = 1
+    api.mockResolvedValueOnce([summary]).mockResolvedValueOnce(snapshot)
+    await store.select(1)
     api
       .mockRejectedValueOnce(new HttpError(409, 'stale'))
       .mockResolvedValueOnce([summary])
@@ -45,6 +46,26 @@ describe('workspace store', () => {
     api.mockResolvedValueOnce([])
     await store.refresh()
     expect(store.active).toBeNull()
+  })
+  it('blocks moves as soon as the list reports a role downgrade', async () => {
+    const store = useBoard()
+    api.mockResolvedValueOnce([summary]).mockResolvedValueOnce(snapshot)
+    await store.select(1)
+    let finish!: (value: unknown) => void
+    api.mockResolvedValueOnce([{ ...summary, role: 'viewer' }]).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+
+    const refresh = store.refresh()
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
+    await store.move(7, snapshot.columns[0], null)
+
+    expect(api.mock.calls.some(([url]) => url.endsWith('/move'))).toBe(false)
+    finish({ ...snapshot, role: 'viewer' })
+    await refresh
   })
   it('discards a delayed snapshot from a previous selection', async () => {
     let finish!: (value: unknown) => void

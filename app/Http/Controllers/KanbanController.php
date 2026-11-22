@@ -33,7 +33,7 @@ abstract class KanbanController
         return Validator::make($input, $rules)->validate();
     }
 
-    protected function data(object $value, int $status = 200): JsonResponse
+    protected function data(object|array $value, int $status = 200): JsonResponse
     {
         return response()->json(['data' => $value], $status);
     }

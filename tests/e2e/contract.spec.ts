@@ -12,6 +12,7 @@ validator.addSchema(api, 'urn:kanban:spec')
 test('HTTP-ответы CRUD, ошибок и сессии соответствуют OpenAPI', async ({ request, baseURL }) => {
   const vars: Record<string, number> = {}
   const email = randomUUID() + '@example.test',
+    memberEmail = randomUUID() + '@example.test',
     password = 'Kanban-test-123'
   async function check(method: string, path: string, status: number, data?: object) {
     const cookie = (await request.storageState()).cookies.find((c) => c.name === 'XSRF-TOKEN')
@@ -49,9 +50,21 @@ test('HTTP-ответы CRUD, ошибок и сессии соответств�
     cols = board + '/columns',
     col = cols + '/{column}',
     cards = '/api/columns/{column}/cards',
-    card = cards + '/{card}'
+    card = cards + '/{card}',
+    members = board + '/members',
+    member = members + '/{member}'
   await check('GET', '/sanctum/csrf-cookie', 204)
   await check('GET', boards, 401)
+  vars.member = (
+    await check('POST', '/api/auth/register', 201, {
+      name: 'Participant',
+      email: memberEmail,
+      password,
+      password_confirmation: password,
+    })
+  ).id
+  await check('POST', '/api/auth/logout', 204)
+  await check('GET', '/sanctum/csrf-cookie', 204)
   await check('POST', '/api/auth/register', 201, {
     name: 'Contract',
     email,
@@ -60,6 +73,11 @@ test('HTTP-ответы CRUD, ошибок и сессии соответств�
   })
   await check('GET', '/api/auth/me', 200)
   vars.board = (await check('POST', boards, 201, { title: 'QA' })).id
+  await check('GET', members, 200)
+  await check('POST', members, 201, { email: memberEmail, role: 'editor' })
+  await check('POST', members, 422, { email: memberEmail, role: 'editor' })
+  await check('PATCH', member, 200, { role: 'viewer' })
+  await check('DELETE', member, 204)
   await check('GET', boards, 200)
   await check('PATCH', board, 200, { title: 'Release' })
   await check('PATCH', board, 422, { position: 12 })

@@ -12,12 +12,12 @@ final class ColumnRepository
 {
     public function all(int $owner, int $board): Collection
     {
-        return $this->owned($owner)->where('board_id', $board)->orderBy('position')->orderBy('id')->get();
+        return $this->accessible($owner)->where('board_id', $board)->orderBy('position')->orderBy('id')->get();
     }
 
     public function find(int $owner, int $id, ?int $board = null): Column
     {
-        $columns = $this->owned($owner);
+        $columns = $this->accessible($owner);
         if ($board !== null) {
             $columns->where('board_id', $board);
         }
@@ -45,8 +45,8 @@ final class ColumnRepository
         $column->delete();
     }
 
-    private function owned(int $owner): Builder
+    private function accessible(int $user): Builder
     {
-        return Column::query()->whereHas('board', fn (Builder $boards) => $boards->where('user_id', $owner));
+        return Column::query()->whereHas('board', fn (Builder $boards) => $boards->accessibleTo($user));
     }
 }

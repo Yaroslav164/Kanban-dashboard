@@ -88,6 +88,10 @@ use OpenApi\Annotations as OA;
  *         ref="#/components/responses/Error419"
  *     ),
  *     @OA\Response(
+ *         response="403",
+ *         ref="#/components/responses/Error403"
+ *     ),
+ *     @OA\Response(
  *         response="404",
  *         ref="#/components/responses/Error404"
  *     ),
@@ -195,6 +199,10 @@ use OpenApi\Annotations as OA;
  *         ref="#/components/responses/Error419"
  *     ),
  *     @OA\Response(
+ *         response="403",
+ *         ref="#/components/responses/Error403"
+ *     ),
+ *     @OA\Response(
  *         response="404",
  *         ref="#/components/responses/Error404"
  *     ),
@@ -237,6 +245,10 @@ use OpenApi\Annotations as OA;
  *     @OA\Response(
  *         response="419",
  *         ref="#/components/responses/Error419"
+ *     ),
+ *     @OA\Response(
+ *         response="403",
+ *         ref="#/components/responses/Error403"
  *     ),
  *     @OA\Response(
  *         response="404",
@@ -291,6 +303,10 @@ use OpenApi\Annotations as OA;
  *         ref="#/components/responses/Error419"
  *     ),
  *     @OA\Response(
+ *         response="403",
+ *         ref="#/components/responses/Error403"
+ *     ),
+ *     @OA\Response(
  *         response="404",
  *         ref="#/components/responses/Error404"
  *     ),
@@ -302,7 +318,7 @@ use OpenApi\Annotations as OA;
  *         response="422",
  *         ref="#/components/responses/Error422"
  *     ),
- *     description="Both neighbor keys are required. Evaluate neighbors in the target column after excluding the moving card. Null previous means first, null next means last, both null require an empty target. Non-null neighbors must be distinct and differ from the moving card (422). Unknown or inaccessible card or target column returns 404. A different owned board or a stale destination gap returns 409. Repeating the same move succeeds while its neighbors still match. The server assigns position.",
+ *     description="Both neighbor keys are required. Evaluate neighbors in the target column after excluding the moving card. Null previous means first, null next means last, both null require an empty target. Non-null neighbors must be distinct and differ from the moving card (422). Unknown or inaccessible card or target column returns 404. A different accessible board or a stale destination gap returns 409. Repeating the same move succeeds while its neighbors still match. The server assigns position.",
  *
  *     @OA\Parameter(
  *         ref="#/components/parameters/CsrfToken"

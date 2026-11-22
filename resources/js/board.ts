@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { HttpError, request } from './api'
 import { gap } from './ordering'
 
@@ -15,7 +15,12 @@ export interface Card extends Summary {
 export interface Column extends Summary {
   cards: Card[]
 }
-export interface Board extends Summary {
+export type BoardRole = 'owner' | 'editor' | 'viewer'
+export type MemberRole = Exclude<BoardRole, 'owner'>
+export interface BoardSummary extends Summary {
+  role: BoardRole
+}
+export interface Board extends BoardSummary {
   columns: Column[]
 }
 export interface User {
@@ -23,15 +28,32 @@ export interface User {
   email: string
   name: string
 }
+export interface BoardMember extends User {
+  role: BoardRole
+}
 
 export const useBoard = defineStore('workspace', () => {
-  const boards = ref<Summary[]>([])
+  const boards = ref<BoardSummary[]>([])
   const active = ref<Board | null>(null)
   const selected = ref<number | null>(null)
+  const role = computed(() => {
+    const board = active.value
+    if (!board || board.id !== selected.value) return null
+    const summary = boards.value.find((item) => item.id === board.id)
+    if (!summary) return null
+    if (summary.role === 'owner' && board.role === 'owner') return 'owner'
+    if (
+      (summary.role === 'owner' || summary.role === 'editor') &&
+      (board.role === 'owner' || board.role === 'editor')
+    )
+      return 'editor'
+    return 'viewer'
+  })
+  const canEdit = computed(() => role.value === 'owner' || role.value === 'editor')
   let version = 0
   async function refresh() {
     const seq = ++version
-    const list = await request<Summary[]>('/api/boards')
+    const list = await request<BoardSummary[]>('/api/boards')
     if (seq !== version) return
     boards.value = list
     const current = selected.value
@@ -64,7 +86,7 @@ export const useBoard = defineStore('workspace', () => {
     boards.value = []
   }
   async function move(id: number, column: Column, before: number | null) {
-    if (before === id) return
+    if (!canEdit.value || before === id) return
     const body = {
       column_id: column.id,
       ...gap(
@@ -79,5 +101,5 @@ export const useBoard = defineStore('workspace', () => {
       await refresh()
     }
   }
-  return { active, boards, selected, refresh, select, reset, move }
+  return { active, boards, selected, role, canEdit, refresh, select, reset, move }
 })

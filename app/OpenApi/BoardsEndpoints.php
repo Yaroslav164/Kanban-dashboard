@@ -176,6 +176,10 @@ use OpenApi\Annotations as OA;
  *         ref="#/components/responses/Error419"
  *     ),
  *     @OA\Response(
+ *         response="403",
+ *         ref="#/components/responses/Error403"
+ *     ),
+ *     @OA\Response(
  *         response="404",
  *         ref="#/components/responses/Error404"
  *     ),
@@ -218,6 +222,10 @@ use OpenApi\Annotations as OA;
  *     @OA\Response(
  *         response="419",
  *         ref="#/components/responses/Error419"
+ *     ),
+ *     @OA\Response(
+ *         response="403",
+ *         ref="#/components/responses/Error403"
  *     ),
  *     @OA\Response(
  *         response="404",

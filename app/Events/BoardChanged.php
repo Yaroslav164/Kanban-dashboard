@@ -5,20 +5,22 @@ declare(strict_types=1);
 namespace App\Events;
 
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 
-final class BoardChanged implements ShouldBroadcast, ShouldDispatchAfterCommit, ShouldRescue
+final class BoardChanged implements ShouldBroadcastNow, ShouldDispatchAfterCommit, ShouldRescue
 {
     use Dispatchable;
 
-    public function __construct(private int $owner, private int $boardId) {}
+    /** @param list<int> $recipients */
+    public function __construct(private array $recipients, private int $boardId) {}
 
-    public function broadcastOn(): PrivateChannel
+    /** @return list<PrivateChannel> */
+    public function broadcastOn(): array
     {
-        return new PrivateChannel("users.{$this->owner}");
+        return array_map(fn (int $id) => new PrivateChannel("users.{$id}"), $this->recipients);
     }
 
     public function broadcastAs(): string

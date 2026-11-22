@@ -20,7 +20,7 @@ use OpenApi\Annotations as OA;
  *
  * @OA\Response(
  *     response="Error404",
- *     description="Resource missing, deleted, outside nested parent, or owned by another user",
+ *     description="Resource missing, deleted, outside nested parent, or inaccessible to the current user",
  *
  *     @OA\MediaType(
  *         mediaType="application/json",
@@ -33,7 +33,7 @@ use OpenApi\Annotations as OA;
  *
  * @OA\Response(
  *     response="Error409",
- *     description="Target gap has changed or move crosses owned boards",
+ *     description="Target gap has changed or move crosses boards",
  *
  *     @OA\MediaType(
  *         mediaType="application/json",
@@ -59,7 +59,7 @@ use OpenApi\Annotations as OA;
  *
  * @OA\Response(
  *     response="Error422",
- *     description="Invalid request fields or incorrect login credentials",
+ *     description="Invalid request fields, credentials, or requested membership change",
  *
  *     @OA\MediaType(
  *         mediaType="application/json",
@@ -72,7 +72,7 @@ use OpenApi\Annotations as OA;
  *
  * @OA\Response(
  *     response="Error403",
- *     description="Requested private channel is not owned by the current user.",
+ *     description="The current user lacks permission for this operation.",
  *
  *     @OA\MediaType(
  *         mediaType="application/json",

@@ -113,7 +113,8 @@ use OpenApi\Annotations as OA;
  *         type="string",
  *         format="date-time"
  *     ),
- *     required={"id", "title", "created_at", "updated_at"}
+ *     @OA\Property(property="role", type="string", enum={"owner", "editor", "viewer"}, description="Role of the current user on this board"),
+ *     required={"id", "title", "created_at", "updated_at", "role"}
  * )
  *
  * @OA\Schema(
@@ -241,7 +242,9 @@ use OpenApi\Annotations as OA;
  *         ),
  *         description="Active columns in position, id order."
  *     ),
- *     required={"id", "title", "created_at", "updated_at", "columns"}
+ *
+ *     @OA\Property(property="role", type="string", enum={"owner", "editor", "viewer"}, description="Role of the current user on this board"),
+ *     required={"id", "title", "created_at", "updated_at", "columns", "role"}
  * )
  *
  * @OA\Schema(

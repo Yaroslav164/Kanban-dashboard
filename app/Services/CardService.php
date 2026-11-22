@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Events\BoardChanged;
+use App\Models\Board;
 use App\Models\Card;
 use App\Repositories\BoardRepository;
 use App\Repositories\CardRepository;
@@ -46,7 +47,7 @@ final class CardService
                 $position = $this->cards->lastPosition($column) + self::POSITION_STEP;
             }
             $card = $this->cards->create($column, $attributes, $position);
-            BoardChanged::dispatch($owner, $board);
+            BoardChanged::dispatch($this->boards->recipients($board), $board->id);
 
             return $transaction->commit($card);
         });
@@ -57,7 +58,7 @@ final class CardService
         return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $column, $id, $attributes) {
             $board = $this->lockColumn($owner, $column);
             $card = $this->cards->update($this->cards->find($owner, $id, $column), $attributes);
-            BoardChanged::dispatch($owner, $board);
+            BoardChanged::dispatch($this->boards->recipients($board), $board->id);
 
             return $transaction->commit($card);
         });
@@ -68,7 +69,7 @@ final class CardService
         $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $column, $id) {
             $board = $this->lockColumn($owner, $column);
             $this->cards->delete($this->cards->find($owner, $id, $column));
-            BoardChanged::dispatch($owner, $board);
+            BoardChanged::dispatch($this->boards->recipients($board), $board->id);
 
             return $transaction->commit();
         });
@@ -78,7 +79,7 @@ final class CardService
     {
         return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $id, $column, $previousId, $nextId) {
             $board = $this->cards->boardId($owner, $id);
-            $this->boards->lock($owner, $board);
+            $locked = $this->boards->lock($owner, $board);
             $card = $this->cards->find($owner, $id);
             $target = $this->columns->find($owner, $column);
             if ($target->board_id !== $board) {
@@ -98,17 +99,16 @@ final class CardService
             }
 
             $card = $this->cards->place($card, $column, $position);
-            BoardChanged::dispatch($owner, $board);
+            BoardChanged::dispatch($this->boards->recipients($locked), $board);
 
             return $transaction->commit($card);
         });
     }
 
-    private function lockColumn(int $owner, int $column): int
+    private function lockColumn(int $owner, int $column): Board
     {
-        $board = $this->columns->find($owner, $column)->board_id;
-        $this->boards->lock($owner, $board);
-        $this->columns->find($owner, $column, $board);
+        $board = $this->boards->lock($owner, $this->columns->find($owner, $column)->board_id);
+        $this->columns->find($owner, $column, $board->id);
 
         return $board;
     }

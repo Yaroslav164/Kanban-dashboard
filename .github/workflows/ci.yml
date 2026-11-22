@@ -16,7 +16,7 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     env:
-      DB_PORT: 5432
+      DB_PORT: 15432
     timeout-minutes: 15
     services:
       postgres:

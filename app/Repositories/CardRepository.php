@@ -13,12 +13,12 @@ final class CardRepository
 {
     public function all(int $owner, int $column): Collection
     {
-        return $this->owned($owner)->where('column_id', $column)->orderBy('position')->orderBy('id')->get();
+        return $this->accessible($owner)->where('column_id', $column)->orderBy('position')->orderBy('id')->get();
     }
 
     public function find(int $owner, int $id, ?int $column = null): Card
     {
-        $cards = $this->owned($owner);
+        $cards = $this->accessible($owner);
         if ($column !== null) {
             $cards->where('column_id', $column);
         }
@@ -28,7 +28,7 @@ final class CardRepository
 
     public function boardId(int $owner, int $id): int
     {
-        $card = $this->owned($owner)->addSelect([
+        $card = $this->accessible($owner)->addSelect([
             'board_id' => Column::query()->select('board_id')->whereColumn('columns.id', 'cards.column_id'),
         ])->findOrFail($id);
 
@@ -94,9 +94,9 @@ final class CardRepository
         return $cards;
     }
 
-    private function owned(int $owner): Builder
+    private function accessible(int $user): Builder
     {
-        return Card::query()->whereHas('column.board', fn (Builder $boards) => $boards->where('user_id', $owner));
+        return Card::query()->whereHas('column.board', fn (Builder $boards) => $boards->accessibleTo($user));
     }
 
     private function encodePosition(float $position): string

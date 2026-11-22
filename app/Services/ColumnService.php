@@ -20,7 +20,7 @@ final class ColumnService
 
     public function all(int $owner, int $board): Collection
     {
-        $this->boards->requireOwned($owner, $board);
+        $this->boards->requireAccessible($owner, $board);
 
         return $this->columns->all($owner, $board);
     }
@@ -33,9 +33,9 @@ final class ColumnService
     public function create(int $owner, int $board, string $title): Column
     {
         return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $board, $title) {
-            $this->boards->lock($owner, $board);
+            $locked = $this->boards->lock($owner, $board);
             $column = $this->columns->create($board, $title);
-            BoardChanged::dispatch($owner, $board);
+            BoardChanged::dispatch($this->boards->recipients($locked), $board);
 
             return $transaction->commit($column);
         });
@@ -44,9 +44,9 @@ final class ColumnService
     public function rename(int $owner, int $board, int $id, string $title): Column
     {
         return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $board, $id, $title) {
-            $this->boards->lock($owner, $board);
+            $locked = $this->boards->lock($owner, $board);
             $column = $this->columns->rename($this->columns->find($owner, $id, $board), $title);
-            BoardChanged::dispatch($owner, $board);
+            BoardChanged::dispatch($this->boards->recipients($locked), $board);
 
             return $transaction->commit($column);
         });
@@ -55,9 +55,9 @@ final class ColumnService
     public function delete(int $owner, int $board, int $id): void
     {
         $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $board, $id) {
-            $this->boards->lock($owner, $board);
+            $locked = $this->boards->lock($owner, $board);
             $this->columns->delete($this->columns->find($owner, $id, $board));
-            BoardChanged::dispatch($owner, $board);
+            BoardChanged::dispatch($this->boards->recipients($locked), $board);
 
             return $transaction->commit();
         });

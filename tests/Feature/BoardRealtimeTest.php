@@ -53,7 +53,7 @@ it('dispatches board changes only after commit', function () {
     $this->assertDatabaseMissing('boards', ['title' => 'Rolled back']);
     $board = $this->postJson('/api/boards', ['title' => 'Committed'])->assertCreated()->json('data.id');
     expect($events)->toHaveCount(1);
-    expect($events[0]->broadcastOn()->name)->toBe("private-users.{$this->owner->id}");
+    expect(array_column($events[0]->broadcastOn(), 'name'))->toBe(["private-users.{$this->owner->id}"]);
     expect($events[0]->broadcastAs())->toBe('board.changed');
     expect($events[0]->broadcastWith())->toBe(['board_id' => $board]);
 });
@@ -63,6 +63,7 @@ it('keeps successful board writes successful if broadcasting fails', function ()
     $broadcaster->shouldReceive('broadcast')->once()->andThrow(new RuntimeException('Broadcast unavailable'));
     Broadcast::extend('broken', fn () => $broadcaster);
     config(['broadcasting.default' => 'broken', 'broadcasting.connections.broken' => ['driver' => 'broken']]);
+    config(['queue.default' => 'database']);
 
     $board = $this->actingAs($this->owner)->postJson('/api/boards', ['title' => 'Saved'])->assertCreated()->json('data.id');
     $this->assertDatabaseHas('boards', ['id' => $board, 'title' => 'Saved']);

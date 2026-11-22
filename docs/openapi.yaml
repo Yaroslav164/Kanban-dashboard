@@ -2,9 +2,9 @@ openapi: 3.0.3
 info:
   title: Kanban MVP
   version: 0.1.0
-  description: 'First-party SPA on the same origin. Use Accept: application/json,
-    keep cookies, and URL-decode XSRF-TOKEN into X-XSRF-TOKEN for mutations. Timestamps are UTC RFC 3339
-    strings. Collection endpoints return all active records.'
+  description: 'First-party SPA on the same origin. Use Accept: application/json, keep cookies, and URL-decode XSRF-TOKEN
+    into X-XSRF-TOKEN for mutations. Timestamps are UTC RFC 3339 strings. Collection endpoints return all active
+    records.'
 servers:
 - url: /
 security:
@@ -231,6 +231,8 @@ paths:
           $ref: '#/components/responses/Error404'
         '422':
           $ref: '#/components/responses/Error422'
+        '403':
+          $ref: '#/components/responses/Error403'
       parameters:
       - $ref: '#/components/parameters/CsrfToken'
       requestBody:
@@ -253,6 +255,8 @@ paths:
           $ref: '#/components/responses/Error419'
         '404':
           $ref: '#/components/responses/Error404'
+        '403':
+          $ref: '#/components/responses/Error403'
       parameters:
       - $ref: '#/components/parameters/CsrfToken'
   /api/boards/{board}/columns:
@@ -308,6 +312,8 @@ paths:
           $ref: '#/components/responses/Error404'
         '422':
           $ref: '#/components/responses/Error422'
+        '403':
+          $ref: '#/components/responses/Error403'
       parameters:
       - $ref: '#/components/parameters/CsrfToken'
       requestBody:
@@ -368,6 +374,8 @@ paths:
           $ref: '#/components/responses/Error404'
         '422':
           $ref: '#/components/responses/Error422'
+        '403':
+          $ref: '#/components/responses/Error403'
       parameters:
       - $ref: '#/components/parameters/CsrfToken'
       requestBody:
@@ -390,6 +398,8 @@ paths:
           $ref: '#/components/responses/Error419'
         '404':
           $ref: '#/components/responses/Error404'
+        '403':
+          $ref: '#/components/responses/Error403'
       parameters:
       - $ref: '#/components/parameters/CsrfToken'
   /api/columns/{column}/cards:
@@ -445,6 +455,8 @@ paths:
           $ref: '#/components/responses/Error404'
         '422':
           $ref: '#/components/responses/Error422'
+        '403':
+          $ref: '#/components/responses/Error403'
       parameters:
       - $ref: '#/components/parameters/CsrfToken'
       requestBody:
@@ -505,6 +517,8 @@ paths:
           $ref: '#/components/responses/Error404'
         '422':
           $ref: '#/components/responses/Error422'
+        '403':
+          $ref: '#/components/responses/Error403'
       parameters:
       - $ref: '#/components/parameters/CsrfToken'
       requestBody:
@@ -527,6 +541,8 @@ paths:
           $ref: '#/components/responses/Error419'
         '404':
           $ref: '#/components/responses/Error404'
+        '403':
+          $ref: '#/components/responses/Error403'
       parameters:
       - $ref: '#/components/parameters/CsrfToken'
   /api/cards/{card}/move:
@@ -560,11 +576,13 @@ paths:
           $ref: '#/components/responses/Error409'
         '422':
           $ref: '#/components/responses/Error422'
-      description: Both neighbor keys are required. Evaluate neighbors in the target column after excluding
-        the moving card. Null previous means first, null next means last, both null require an empty target.
-        Non-null neighbors must be distinct and differ from the moving card (422). Unknown or inaccessible
-        card or target column returns 404. A different owned board or a stale destination gap returns
-        409. Repeating the same move succeeds while its neighbors still match. The server assigns position.
+        '403':
+          $ref: '#/components/responses/Error403'
+      description: Both neighbor keys are required. Evaluate neighbors in the target column after excluding the
+        moving card. Null previous means first, null next means last, both null require an empty target. Non-null
+        neighbors must be distinct and differ from the moving card (422). Unknown or inaccessible card or target
+        column returns 404. A different accessible board or a stale destination gap returns 409. Repeating the same
+        move succeeds while its neighbors still match. The server assigns position.
       parameters:
       - $ref: '#/components/parameters/CsrfToken'
       requestBody:
@@ -579,8 +597,8 @@ paths:
       tags:
       - Auth
       summary: Start GitHub sign-in or link the signed-in account
-      description: Socialite stores a single-use state, intent and initiating user in the session. Linking
-        requires intent=link and the same authenticated user at callback.
+      description: Socialite stores a single-use state, intent and initiating user in the session. Linking requires
+        intent=link and the same authenticated user at callback.
       security: []
       parameters:
       - name: intent
@@ -588,10 +606,10 @@ paths:
         required: false
         schema:
           type: string
+          default: login
           enum:
           - login
           - link
-          default: login
       responses:
         '302':
           description: Redirect to the GitHub authorization page requesting read:user and user:email.
@@ -610,11 +628,11 @@ paths:
       tags:
       - Auth
       summary: Complete a state-validated GitHub sign-in or link
-      description: Known provider IDs sign in to the linked account. A new account requires a verified
-        primary email. Existing emails never cause implicit account linking. Explicit linking requires
-        the initiating session and an unclaimed provider ID. Rotate the session on sign-in. Errors redirect
-        with one of invalid_state, denied, email_unverified, account_exists, identity_in_use or provider_unavailable.
-        All redirect locations are fixed SPA paths.
+      description: Known provider IDs sign in to the linked account. A new account requires a verified primary email.
+        Existing emails never cause implicit account linking. Explicit linking requires the initiating session and
+        an unclaimed provider ID. Rotate the session on sign-in. Errors redirect with one of invalid_state, denied,
+        email_unverified, account_exists, identity_in_use or provider_unavailable. All redirect locations are fixed
+        SPA paths.
       security: []
       parameters:
       - name: code
@@ -634,9 +652,9 @@ paths:
           type: string
       responses:
         '302':
-          description: Successful login or link redirects to /boards. Errors redirect to /login?oauth={error}
-            for sign-in, /settings/account?oauth={error} for a verified link attempt. If state cannot
-            be validated use /login?oauth=invalid_state.
+          description: Successful login or link redirects to /boards. Errors redirect to /login?oauth={error} for
+            sign-in, /settings/account?oauth={error} for a verified link attempt. If state cannot be validated use
+            /login?oauth=invalid_state.
           headers:
             Location:
               schema:
@@ -684,6 +702,168 @@ paths:
           $ref: '#/components/responses/Error401'
         '403':
           $ref: '#/components/responses/Error403'
+        '419':
+          $ref: '#/components/responses/Error419'
+        '422':
+          $ref: '#/components/responses/Error422'
+  /api/boards/{board}/members:
+    get:
+      tags:
+      - Board members
+      summary: List board members
+      operationId: listBoardMembers
+      parameters:
+      - $ref: '#/components/parameters/board'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                required:
+                - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BoardMember'
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+    post:
+      tags:
+      - Board members
+      summary: Add a registered user to the board
+      operationId: addBoardMember
+      parameters:
+      - $ref: '#/components/parameters/board'
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              required:
+              - email
+              - role
+              properties:
+                email:
+                  type: string
+                  format: email
+                  maxLength: 255
+                role:
+                  type: string
+                  enum:
+                  - editor
+                  - viewer
+              type: object
+              additionalProperties: false
+      responses:
+        '201':
+          description: Member added
+          content:
+            application/json:
+              schema:
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BoardMember'
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '419':
+          $ref: '#/components/responses/Error419'
+        '422':
+          $ref: '#/components/responses/Error422'
+  /api/boards/{board}/members/{member}:
+    delete:
+      tags:
+      - Board members
+      summary: Remove a board member
+      operationId: deleteBoardMember
+      parameters:
+      - $ref: '#/components/parameters/board'
+      - name: member
+        in: path
+        description: Member user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Member removed
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '419':
+          $ref: '#/components/responses/Error419'
+        '422':
+          $ref: '#/components/responses/Error422'
+    patch:
+      tags:
+      - Board members
+      summary: Change a board member role
+      operationId: updateBoardMember
+      parameters:
+      - $ref: '#/components/parameters/board'
+      - name: member
+        in: path
+        description: Member user ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              required:
+              - role
+              properties:
+                role:
+                  type: string
+                  enum:
+                  - editor
+                  - viewer
+              type: object
+              additionalProperties: false
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BoardMember'
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
         '419':
           $ref: '#/components/responses/Error419'
         '422':
@@ -808,11 +988,19 @@ components:
         updated_at:
           type: string
           format: date-time
+        role:
+          description: Role of the current user on this board
+          type: string
+          enum:
+          - owner
+          - editor
+          - viewer
       required:
       - id
       - title
       - created_at
       - updated_at
+      - role
     Column:
       type: object
       additionalProperties: false
@@ -906,12 +1094,20 @@ components:
           items:
             $ref: '#/components/schemas/ColumnDetail'
           description: Active columns in position, id order.
+        role:
+          description: Role of the current user on this board
+          type: string
+          enum:
+          - owner
+          - editor
+          - viewer
       required:
       - id
       - title
       - created_at
       - updated_at
       - columns
+      - role
     ColumnDetail:
       type: object
       additionalProperties: false
@@ -1061,6 +1257,30 @@ components:
       required:
       - message
       - errors
+    BoardMember:
+      required:
+      - id
+      - name
+      - email
+      - role
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum:
+          - owner
+          - editor
+          - viewer
+      type: object
+      additionalProperties: false
   responses:
     Error401:
       description: Session missing or expired
@@ -1069,13 +1289,13 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
     Error404:
-      description: Resource missing, deleted, outside nested parent, or owned by another user
+      description: Resource missing, deleted, outside nested parent, or inaccessible to the current user
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
     Error409:
-      description: Target gap has changed or move crosses owned boards
+      description: Target gap has changed or move crosses boards
       content:
         application/json:
           schema:
@@ -1087,13 +1307,13 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
     Error422:
-      description: Invalid request fields or incorrect login credentials
+      description: Invalid request fields, credentials, or requested membership change
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ValidationError'
     Error403:
-      description: Requested private channel is not owned by the current user.
+      description: The current user lacks permission for this operation.
       content:
         application/json:
           schema:
@@ -1102,9 +1322,9 @@ x-realtime:
   transport: Laravel Reverb (Pusher protocol)
   channel: private-users.{userId}
   event: board.changed
-  description: Broadcast after a successful commit for board, column and card mutations. Invalidate the
-    board list and refresh the affected open board. After subscription or reconnect, refresh list and
-    current board even when no event was received. Remove a deleted open board on 404.
+  description: Broadcast after a successful commit for board, column and card mutations. Invalidate the board list
+    and refresh the affected open board. After subscription or reconnect, refresh list and current board even when
+    no event was received. Remove a deleted open board on 404.
   payload:
     type: object
     additionalProperties: false
@@ -1115,10 +1335,11 @@ x-realtime:
         type: integer
         format: int64
         minimum: 1
-
 tags:
 - name: Auth
   description: Auth
+- name: Board members
+  description: Board members
 - name: Boards
   description: Boards
 - name: Cards

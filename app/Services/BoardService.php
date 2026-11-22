@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Events\BoardChanged;
 use App\Models\Board;
+use App\Models\BoardRole;
 use App\Repositories\BoardRepository;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -27,7 +28,7 @@ final class BoardService
     {
         return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $title) {
             $board = $this->boards->create($owner, $title);
-            BoardChanged::dispatch($owner, $board->id);
+            BoardChanged::dispatch([$owner], $board->id);
 
             return $transaction->commit($board);
         });
@@ -37,7 +38,7 @@ final class BoardService
     {
         return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $id, $title) {
             $board = $this->boards->rename($this->boards->lock($owner, $id), $title);
-            BoardChanged::dispatch($owner, $id);
+            BoardChanged::dispatch($this->boards->recipients($board), $id);
 
             return $transaction->commit($board);
         });
@@ -46,8 +47,9 @@ final class BoardService
     public function delete(int $owner, int $id): void
     {
         $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $id) {
-            $this->boards->delete($this->boards->lock($owner, $id));
-            BoardChanged::dispatch($owner, $id);
+            $board = $this->boards->lock($owner, $id, BoardRole::Owner);
+            $this->boards->delete($board);
+            BoardChanged::dispatch($this->boards->recipients($board), $id);
 
             return $transaction->commit();
         });

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { HttpError, request } from './api'
 import { useBoard, type User, type Summary, type Card, type Column } from './board'
+import BoardTeam from './BoardTeam.vue'
 import { subscribe } from './realtime'
 
 const store = useBoard(),
@@ -20,6 +21,7 @@ const dragged = ref<number | null>(null),
 const editor = ref<{
   kind: 'доска' | 'колонка' | 'карточка'
   path: string
+  boardId: number | null
   id?: number
   remove?: boolean
 } | null>(null)
@@ -63,6 +65,9 @@ async function run(fn: () => Promise<void>) {
     await fn()
   } catch (e) {
     report(e)
+    if (store.active && e instanceof HttpError && (e.status === 403 || e.status === 404)) {
+      syncBoard()
+    }
   } finally {
     busy.value = false
   }
@@ -70,11 +75,12 @@ async function run(fn: () => Promise<void>) {
 async function session(u: User) {
   user.value = u
   disconnect?.()
-  disconnect = subscribe(u.id, () => {
-    void store.refresh().catch(report)
-  })
+  disconnect = subscribe(u.id, syncBoard)
   const id = Number(new URLSearchParams(location.search).get('board'))
   await store.select(id > 0 ? id : null)
+}
+function syncBoard() {
+  void store.refresh().catch(report)
 }
 onMounted(async () => {
   const oauth = new URLSearchParams(location.search).get('oauth')
@@ -125,7 +131,10 @@ async function edit(
   item?: Summary,
   remove = false,
 ) {
-  editor.value = { kind, path, id: item?.id, remove }
+  const boardId = kind === 'доска' && !item ? null : store.active?.id
+  if (boardId === undefined || (boardId !== null && !store.canEdit)) return
+  if (kind === 'доска' && remove && store.role !== 'owner') return
+  editor.value = { kind, path, boardId, id: item?.id, remove }
   title.value = item?.title ?? ''
   description.value = (item as Card)?.description ?? ''
   await nextTick()
@@ -136,9 +145,21 @@ function close() {
   dialog.value?.close()
   editor.value = null
 }
+function canSave(entry: NonNullable<typeof editor.value>) {
+  if (entry.boardId === null) return true
+  if (entry.boardId !== store.active?.id || !store.canEdit) return false
+  return entry.kind !== 'доска' || !entry.remove || store.role === 'owner'
+}
+watch(
+  () => [store.active?.id, store.role],
+  () => {
+    if (!store.canEdit) endDrag()
+    if (editor.value && !canSave(editor.value)) close()
+  },
+)
 async function save() {
   const entry = editor.value
-  if (!entry) return
+  if (!entry || !canSave(entry)) return
   await run(async () => {
     const path = entry.path + (entry.id ? '/' + entry.id : '')
     const result = await request<Summary>(
@@ -157,17 +178,26 @@ async function save() {
   })
 }
 function beginDrag(e: DragEvent, id: number) {
+  if (!store.canEdit) {
+    e.preventDefault()
+    return
+  }
   dragged.value = id
   if (e.dataTransfer) {
     e.dataTransfer.setData('text/plain', String(id))
     e.dataTransfer.effectAllowed = 'move'
   }
 }
+function allowDrop(e: DragEvent, before: number | null = null) {
+  if (!store.canEdit || dragged.value === null) return
+  e.preventDefault()
+  hover.value = before === null ? null : String(before)
+}
 async function drop(column: Column, before: number | null) {
   const id = dragged.value
   dragged.value = null
   hover.value = null
-  if (id !== null) await run(() => store.move(id, column, before))
+  if (id !== null && store.canEdit) await run(() => store.move(id, column, before))
 }
 const nouns = {
   доска: ['Новая доска', 'доску'],
@@ -296,19 +326,31 @@ const nouns = {
           <div>
             <p class="kicker">КАНБАН-ДОСКА</p>
             <h1>{{ store.active.title }}</h1>
+            <p v-if="store.role === 'viewer'" class="board-readonly">Только просмотр</p>
           </div>
-          <div class="actions">
-            <details>
+          <div class="actions board-actions">
+            <BoardTeam
+              v-if="store.role"
+              :key="store.active.id"
+              :board="store.active"
+              :role="store.role"
+              @access-changed="syncBoard"
+            />
+            <details v-if="store.canEdit">
               <summary aria-label="Действия с доской">•••</summary>
               <div class="menu">
                 <button @click="edit('доска', '/api/boards', store.active)">
                   Переименовать доску</button
-                ><button @click="edit('доска', '/api/boards', store.active, true)">
+                ><button
+                  v-if="store.role === 'owner'"
+                  @click="edit('доска', '/api/boards', store.active, true)"
+                >
                   Удалить доску
                 </button>
               </div>
             </details>
             <button
+              v-if="store.canEdit"
               class="primary"
               @click="edit('колонка', '/api/boards/' + store.active.id + '/columns')"
             >
@@ -322,14 +364,14 @@ const nouns = {
             :key="col.id"
             class="lane"
             :class="'lane-' + (i % 3)"
-            @dragover.prevent
+            @dragover="allowDrop($event)"
             @drop.prevent="drop(col, null)"
           >
             <div class="lane-head">
               <span class="dot" />
               <h2>{{ col.title }}</h2>
               <small>{{ col.cards.length }}</small>
-              <details>
+              <details v-if="store.canEdit">
                 <summary :aria-label="'Действия с колонкой ' + col.title">•••</summary>
                 <div class="menu">
                   <button
@@ -349,21 +391,26 @@ const nouns = {
             <article
               v-for="card in col.cards"
               :key="card.id"
-              draggable="true"
+              :draggable="store.canEdit"
               :class="{ target: hover === String(card.id) }"
               @dragstart="beginDrag($event, card.id)"
               @dragend="endDrag"
-              @dragover.stop.prevent="hover = String(card.id)"
+              @dragover.stop="allowDrop($event, card.id)"
               @drop.stop.prevent="drop(col, card.id)"
             >
               <button
+                v-if="store.canEdit"
                 class="card-body"
                 @click="edit('карточка', '/api/columns/' + col.id + '/cards', card)"
               >
                 <strong>{{ card.title }}</strong>
                 <p v-if="card.description">{{ card.description }}</p>
               </button>
-              <details>
+              <div v-else class="card-body readonly-card">
+                <strong>{{ card.title }}</strong>
+                <p v-if="card.description">{{ card.description }}</p>
+              </div>
+              <details v-if="store.canEdit">
                 <summary :aria-label="'Действия с карточкой ' + card.title">•••</summary>
                 <div class="menu">
                   <button
@@ -380,13 +427,17 @@ const nouns = {
                 </div>
               </details>
             </article>
-            <button class="add-card" @click="edit('карточка', '/api/columns/' + col.id + '/cards')">
+            <button
+              v-if="store.canEdit"
+              class="add-card"
+              @click="edit('карточка', '/api/columns/' + col.id + '/cards')"
+            >
               ＋ Добавить карточку
             </button>
           </section>
           <div v-if="!store.active.columns.length" class="empty">
-            <h2>Добавьте первую колонку</h2>
-            <p>Каждая колонка обозначает этап работы.</p>
+            <h2>{{ store.canEdit ? 'Добавьте первую колонку' : 'На доске пока нет колонок' }}</h2>
+            <p v-if="store.canEdit">Каждая колонка обозначает этап работы.</p>
           </div>
         </div></template
       >
