@@ -7,12 +7,13 @@ COPY vite.config.ts tsconfig.json ./
 COPY resources/js resources/js
 COPY resources/css resources/css
 ARG VITE_REVERB_APP_KEY=kanban-local
-ARG VITE_REVERB_HOST=localhost
+ARG VITE_REVERB_HOST=
 ARG VITE_REVERB_PORT=8080
 ARG VITE_REVERB_SCHEME=http
 RUN npm run build
 
 FROM composer:2 AS composer-bin
+FROM caddy:2-alpine AS caddy-bin
 
 FROM php:8.3-cli-bookworm AS php
 RUN apt-get update \
@@ -37,6 +38,7 @@ COPY --chown=www-data:www-data . .
 COPY --from=dependencies --chown=www-data:www-data /app/vendor /app/vendor
 COPY --from=composer-bin /usr/bin/composer /usr/local/bin/composer
 COPY --from=frontend /app/public/build /app/public/build
+COPY --from=caddy-bin /usr/bin/caddy /usr/local/bin/caddy
 RUN touch .env
 USER www-data
 RUN composer dump-autoload --optimize \

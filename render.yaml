@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: kanban-dashboard
+    runtime: docker
+    plan: free
+    dockerCommand: sh /app/docker/render-start.sh
+    healthCheckPath: /up
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_KEY_SEED
+        generateValue: true
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: kanban-dashboard-db
+          property: connectionString
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: BROADCAST_CONNECTION
+        value: reverb
+      - key: REVERB_APP_ID
+        value: kanban-dashboard
+      - key: REVERB_APP_KEY
+        value: kanban-dashboard
+      - key: REVERB_APP_SECRET
+        generateValue: true
+      - key: VITE_REVERB_APP_KEY
+        value: kanban-dashboard
+      - key: VITE_REVERB_PORT
+        value: "443"
+      - key: VITE_REVERB_SCHEME
+        value: https
+
+databases:
+  - name: kanban-dashboard-db
+    plan: free
+    postgresMajorVersion: "16"
+    ipAllowList: []

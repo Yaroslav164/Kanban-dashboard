@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        if (getenv('RENDER') === 'true') {
+            $middleware->trustProxies(at: ['127.0.0.1'], headers: Request::HEADER_X_FORWARDED_PROTO);
+        }
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (ValidationException $error, Request $request) {
