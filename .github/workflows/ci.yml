@@ -1,0 +1,88 @@
+name: Kanban CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      DB_PORT: 5432
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-bookworm
+        env:
+          POSTGRES_DB: kanban
+          POSTGRES_USER: kanban
+          POSTGRES_PASSWORD: kanban
+        ports:
+          - 15432:5432
+        options: >-
+          --health-cmd "pg_isready -U kanban -d kanban"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: pdo_pgsql
+          coverage: pcov
+          ini-values: pcov.directory=app
+          tools: composer:v2
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Find Composer download cache
+        id: composer
+        run: echo "cache=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v5.0.0
+        with:
+          path: ${{ steps.composer.outputs.cache }}
+          key: ${{ runner.os }}-php83-composer-${{ hashFiles('composer.lock') }}
+      - name: Install dependencies
+        run: |
+          cp .env.example .env
+          composer install --no-interaction --prefer-dist
+          npm ci
+          php artisan key:generate
+      - name: Check style and types
+        run: |
+          ./vendor/bin/pint --test
+          npm run lint
+          npm run typecheck
+      - name: Create test database
+        run: docker exec "${{ job.services.postgres.id }}" createdb -U kanban kanban_testing
+      - name: Test PHP and enforce 80% coverage
+        run: |
+          php artisan test
+          ./vendor/bin/pest --coverage --min=80
+      - name: Test and build Vue
+        run: |
+          npm run test
+          npm run build
+      - name: Generate and verify OpenAPI
+        run: |
+          python -m venv "$RUNNER_TEMP/contract-venv"
+          "$RUNNER_TEMP/contract-venv/bin/pip" install PyYAML==6.0.3
+          php artisan l5-swagger:generate
+          "$RUNNER_TEMP/contract-venv/bin/python" scripts/check-contract.py
+      - name: Browser smoke tests
+        run: |
+          npx playwright install --with-deps chromium
+          php artisan migrate --force
+          npm run test:e2e

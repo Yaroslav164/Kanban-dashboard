@@ -1,0 +1,16 @@
+/.env
+/.env.*
+!/.env.example
+/.phpunit.cache
+/.phpunit.result.cache
+/.kanban-cache/
+/node_modules/
+/vendor/
+/public/build/
+/public/hot
+/public/storage
+/storage/api-docs/
+/storage/*.key
+/test-results/
+/playwright-report/
+/database/*.sqlite*

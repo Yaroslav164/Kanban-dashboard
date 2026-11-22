@@ -1,75 +1,43 @@
-# Task Manager — Vue.js + Laravel
+# Полоса
 
-Полноценный task manager с авторизацией:
+Личная канбан-доска на Laravel 13, PHP 8.3, PostgreSQL 16, Vue 3 и Pinia. Карточки можно перетаскивать между колонками. Открытые вкладки одного пользователя получают изменения через Laravel Reverb.
 
-- **Backend** — Laravel (PHP), REST API, session-авторизация, SQLite.
-- **Frontend** — Vue 3 + Vite, сборка прямо в `backend/public` (SPA отдаётся Laravel'ом).
+## Запуск в Docker
 
-## Возможности
+Из корня проекта скопируйте `.env.example` в `.env`. Сгенерируйте ключ следующей командой и поместите результат целиком в `APP_KEY` файла `.env`.
 
-- Регистрация и вход по email/паролю (session cookie, сессия на сервере).
-- CRUD задач: название, описание, приоритет (низкий/средний/высокий), срок.
-- Отметка выполнения, фильтрация (все / активные / выполненные), поиск.
-- Статистика (всего / активные / выполнено), бейджи приоритета и сроков.
-- Задачи изолированы: пользователь видит только свои.
-
-## Структура
-
-```
-├── backend/    # Laravel API (routes/api.php, app/Http/Controllers)
-├── frontend/   # Vue 3 + Vite (src/views, src/components, src/api.js)
-└── README.md
+```sh
+docker run --rm php:8.3-cli php -r "echo 'base64:', base64_encode(random_bytes(32)), PHP_EOL;"
+docker compose up -d --build --wait
 ```
 
-## Запуск
+Откройте [доски](http://localhost:8000) и создайте аккаунт. Compose сам выполнит миграции. PostgreSQL доступен на порту 15432 хоста, Reverb — на 8080. Данные хранятся в томе PostgreSQL. Команда `docker compose stop` останавливает сервисы.
 
-### 1. Backend (терминал 1)
+Для входа через GitHub укажите `GITHUB_CLIENT_ID` и `GITHUB_CLIENT_SECRET` своего OAuth App. Callback URL при локальном запуске — `http://localhost:8000/auth/github/callback`. После изменения окружения выполните `docker compose up -d`.
 
-```bash
-cd backend
-php artisan serve        # http://localhost:8000
+## API и проверки
+
+[Swagger UI](http://localhost:8000/api/documentation) описывает сессию, CRUD, переносы и авторизацию приватных каналов. Для локальной Swagger UI удобно сначала войти в приложение в соседней вкладке. Сервер генерирует JSON и YAML из PHPDoc в `app/OpenApi`. Эталон для CI хранится в [docs/openapi.yaml](docs/openapi.yaml).
+
+```sh
+docker compose exec -e APP_ENV=testing app php artisan test
+docker compose exec -e APP_ENV=testing app php vendor/bin/pest --coverage --min=80
+docker compose exec app php vendor/bin/pint --test
+docker compose exec app php artisan l5-swagger:generate
 ```
 
-База — SQLite (`database/database.sqlite`), миграции уже применены.
-Если нужно начать с нуля: `php artisan migrate:fresh --force`.
+Для клиентских проверок используйте Node 24 и npm. Playwright проверяет схему реальных HTTP-ответов, сохранение порядка и обновление второй вкладки.
 
-### 2. Frontend
-
-**Прод-режим (рекомендуется)** — уже собрано, ничего делать не нужно:
-SPA лежит в `backend/public` и открывается по адресу http://localhost:8000.
-
-**Dev-режим с HMR** (терминал 2):
-
-```bash
-cd frontend
-npm run dev              # http://localhost:5173, /api проксируется на :8000
+```sh
+npm ci
+npm run test
+npm run typecheck
+npm run lint
+npm run build
+npx playwright install chromium
+docker compose cp app:/app/storage/api-docs ./storage/
 ```
 
-### Демо-аккаунт
+В PowerShell выполните `$env:KANBAN_URL='http://localhost:8000'`, затем `npm run test:e2e`. В Bash — `KANBAN_URL=http://localhost:8000 npm run test:e2e`. Для сравнения YAML установите PyYAML и выполните `python scripts/check-contract.py`. Скрипты CI используют отдельную БД `kanban_testing`.
 
-| Email | Пароль |
-|---|---|
-| `demo@example.com` | `password` |
-
-## API
-
-Все запросы — JSON, авторизация — по сессии (cookie).
-
-| Метод | Путь | Описание |
-|---|---|---|
-| POST | `/api/auth/register` | Регистрация (`name`, `email`, `password`, `password_confirmation`) |
-| POST | `/api/auth/login` | Вход (`email`, `password`) |
-| POST | `/api/auth/logout` | Выход |
-| GET | `/api/auth/me` | Текущий пользователь |
-| GET | `/api/tasks` | Список задач. Фильтры: `completed=true/false`, `q=текст` |
-| POST | `/api/tasks` | Создать (`title`, `description?`, `priority?`, `due_date?`) |
-| PATCH | `/api/tasks/{id}` | Обновить |
-| PATCH | `/api/tasks/{id}/toggle` | Переключить статус выполнения |
-| DELETE | `/api/tasks/{id}` | Удалить |
-
-## Сборка фронтенда в прод
-
-```bash
-cd frontend
-npm run build            # кладёт dist в ../backend/public (не затирая index.php)
-```
+В Git-репозитории pre-commit включается командой `git config core.hooksPath .githooks`. Unix требует права на запуск файла `.githooks/pre-commit`. Подробности реализации и приёмки — в [чеклисте проекта](tasks/todo.md).

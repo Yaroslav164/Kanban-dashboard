@@ -1,0 +1,71 @@
+x-app: &app
+  image: kanban-local
+  build:
+    context: .
+    args:
+      VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:-kanban-local}
+      VITE_REVERB_HOST: ${VITE_REVERB_HOST:-localhost}
+      VITE_REVERB_PORT: ${VITE_REVERB_PORT:-8080}
+      VITE_REVERB_SCHEME: ${VITE_REVERB_SCHEME:-http}
+  env_file: .env
+  environment:
+    APP_DEBUG: "false"
+    DB_HOST: db
+    DB_PORT: 5432
+    REVERB_HOST: reverb
+    REVERB_PORT: 8080
+    REVERB_SCHEME: http
+
+services:
+  db:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-kanban}
+      POSTGRES_USER: ${DB_USERNAME:-kanban}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-kanban}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-test-db.sh:/docker-entrypoint-initdb.d/00-test-db.sh:ro
+    ports:
+      - "127.0.0.1:${DB_PORT:-15432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    <<: *app
+    command: ["php", "artisan", "migrate", "--force"]
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+
+  reverb:
+    <<: *app
+    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${VITE_REVERB_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 8080) === false ? 1 : 0);"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    <<: *app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      reverb:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+
+volumes:
+  postgres_data:

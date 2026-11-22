@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+php_files=()
+lint_files=()
+format_files=()
+
+while IFS= read -r -d '' file; do
+    case "$file" in
+        *.php) php_files+=("$file") ;;
+    esac
+    case "$file" in
+        resources/js/*.ts|resources/js/*.js|resources/js/*.vue|tests/e2e/*.ts|e2e/*.ts|*.config.ts|eslint.config.js)
+            lint_files+=("$file")
+            ;;
+    esac
+    case "$file" in
+        resources/js/*.ts|resources/js/*.js|resources/js/*.vue|resources/js/*.css|resources/js/*.json|resources/css/*.css)
+            format_files+=("$file")
+            ;;
+    esac
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if (("${#php_files[@]}")); then
+    php vendor/bin/pint --test -- "${php_files[@]}"
+fi
+if (("${#lint_files[@]}")); then
+    npm exec --offline -- eslint -- "${lint_files[@]}"
+fi
+if (("${#format_files[@]}")); then
+    npm exec --offline -- prettier --check -- "${format_files[@]}"
+fi
