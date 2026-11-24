@@ -11,13 +11,48 @@ export interface Card extends Summary {
   column_id: number
   description: string | null
   position: number
+  start_date: string | null
+  due_date: string | null
+  completed: boolean
+  labels: CardLabel[]
+  assignee_ids: number[]
+  checklists: CardChecklist[]
+}
+export interface CardLabel {
+  name: string
+  color: string
+}
+export interface CardChecklist {
+  id: string
+  title: string
+  items: { id: string; title: string; completed: boolean }[]
 }
 export interface Column extends Summary {
   cards: Card[]
 }
-export type BoardRole = 'owner' | 'editor' | 'viewer'
+export const permissionLabels = {
+  'board.rename': 'Переименовывать доску',
+  'columns.create': 'Создавать колонки',
+  'columns.edit': 'Переименовывать колонки',
+  'columns.delete': 'Удалять колонки вместе с карточками',
+  'cards.create': 'Создавать карточки',
+  'cards.edit': 'Редактировать карточки и их содержимое',
+  'cards.move': 'Перемещать карточки',
+  'cards.delete': 'Удалять карточки',
+  'cards.comment': 'Добавлять комментарии',
+  'cards.attach': 'Управлять вложениями',
+} as const
+export type Permission = keyof typeof permissionLabels
+export type BoardRole = 'owner' | 'editor' | 'viewer' | `custom-${number}`
+export interface CustomRole {
+  key: `custom-${number}`
+  id: number
+  name: string
+  permissions: Permission[]
+}
 export type MemberRole = Exclude<BoardRole, 'owner'>
 export interface BoardSummary extends Summary {
+  permissions?: Permission[]
   role: BoardRole
 }
 export interface Board extends BoardSummary {
@@ -36,20 +71,30 @@ export const useBoard = defineStore('workspace', () => {
   const boards = ref<BoardSummary[]>([])
   const active = ref<Board | null>(null)
   const selected = ref<number | null>(null)
+  const summary = computed(() => boards.value.find((board) => board.id === selected.value))
   const role = computed(() => {
     const board = active.value
-    if (!board || board.id !== selected.value) return null
-    const summary = boards.value.find((item) => item.id === board.id)
-    if (!summary) return null
-    if (summary.role === 'owner' && board.role === 'owner') return 'owner'
-    if (
-      (summary.role === 'owner' || summary.role === 'editor') &&
-      (board.role === 'owner' || board.role === 'editor')
-    )
-      return 'editor'
-    return 'viewer'
+    if (!board || board.id !== selected.value || !summary.value) return null
+    return summary.value.role === board.role ? board.role : 'viewer'
   })
-  const canEdit = computed(() => role.value === 'owner' || role.value === 'editor')
+
+  function grants(board: BoardSummary, permission: Permission) {
+    return (
+      board.permissions?.includes(permission) ?? (board.role === 'owner' || board.role === 'editor')
+    )
+  }
+
+  function can(permission: Permission) {
+    const board = active.value
+    return (
+      !!board &&
+      board.id === selected.value &&
+      !!summary.value &&
+      grants(summary.value, permission) &&
+      grants(board, permission)
+    )
+  }
+  const canEdit = computed(() => can('cards.edit'))
   let version = 0
   async function refresh() {
     const seq = ++version
@@ -86,7 +131,7 @@ export const useBoard = defineStore('workspace', () => {
     boards.value = []
   }
   async function move(id: number, column: Column, before: number | null) {
-    if (!canEdit.value || before === id) return
+    if (!can('cards.move') || before === id) return
     const body = {
       column_id: column.id,
       ...gap(
@@ -101,5 +146,5 @@ export const useBoard = defineStore('workspace', () => {
       await refresh()
     }
   }
-  return { active, boards, selected, role, canEdit, refresh, select, reset, move }
+  return { active, boards, selected, role, can, canEdit, refresh, select, reset, move }
 })

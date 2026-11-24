@@ -113,8 +113,9 @@ use OpenApi\Annotations as OA;
  *         type="string",
  *         format="date-time"
  *     ),
- *     @OA\Property(property="role", type="string", enum={"owner", "editor", "viewer"}, description="Role of the current user on this board"),
- *     required={"id", "title", "created_at", "updated_at", "role"}
+ *     @OA\Property(property="role", ref="#/components/schemas/BoardRoleKey"),
+ *     @OA\Property(property="permissions", ref="#/components/schemas/Permissions"),
+ *     required={"id", "title", "created_at", "updated_at", "role", "permissions"}
  * )
  *
  * @OA\Schema(
@@ -203,7 +204,13 @@ use OpenApi\Annotations as OA;
  *         type="number",
  *         format="double"
  *     ),
- *     required={"id", "title", "created_at", "updated_at", "column_id", "description", "position"}
+ *     @OA\Property(property="start_date", type="string", format="date", nullable=true),
+ *     @OA\Property(property="due_date", type="string", format="date", nullable=true, description="On or after start_date"),
+ *     @OA\Property(property="completed", type="boolean"),
+ *     @OA\Property(property="labels", type="array", maxItems=50, @OA\Items(ref="#/components/schemas/CardLabel")),
+ *     @OA\Property(property="assignee_ids", type="array", uniqueItems=true, @OA\Items(type="integer", format="int64", minimum=1)),
+ *     @OA\Property(property="checklists", type="array", maxItems=20, @OA\Items(ref="#/components/schemas/CardChecklist")),
+ *     required={"id", "title", "created_at", "updated_at", "column_id", "description", "position", "start_date", "due_date", "completed", "labels", "assignee_ids", "checklists"}
  * )
  *
  * @OA\Schema(
@@ -243,8 +250,9 @@ use OpenApi\Annotations as OA;
  *         description="Active columns in position, id order."
  *     ),
  *
- *     @OA\Property(property="role", type="string", enum={"owner", "editor", "viewer"}, description="Role of the current user on this board"),
- *     required={"id", "title", "created_at", "updated_at", "columns", "role"}
+ *     @OA\Property(property="role", ref="#/components/schemas/BoardRoleKey"),
+ *     @OA\Property(property="permissions", ref="#/components/schemas/Permissions"),
+ *     required={"id", "title", "created_at", "updated_at", "columns", "role", "permissions"}
  * )
  *
  * @OA\Schema(
@@ -399,6 +407,12 @@ use OpenApi\Annotations as OA;
  *         nullable=true,
  *         maxLength=10000
  *     ),
+ *     @OA\Property(property="start_date", type="string", format="date", nullable=true),
+ *     @OA\Property(property="due_date", type="string", format="date", nullable=true, description="On or after start_date"),
+ *     @OA\Property(property="completed", type="boolean"),
+ *     @OA\Property(property="labels", type="array", maxItems=50, @OA\Items(ref="#/components/schemas/CardLabel")),
+ *     @OA\Property(property="assignee_ids", type="array", uniqueItems=true, @OA\Items(type="integer", format="int64", minimum=1)),
+ *     @OA\Property(property="checklists", type="array", maxItems=20, @OA\Items(ref="#/components/schemas/CardChecklist")),
  *     required={"title"}
  * )
  *
@@ -418,6 +432,27 @@ use OpenApi\Annotations as OA;
  *         type="string",
  *         nullable=true,
  *         maxLength=10000
+ *     ),
+ *     @OA\Property(property="start_date", type="string", format="date", nullable=true),
+ *     @OA\Property(property="due_date", type="string", format="date", nullable=true, description="On or after start_date"),
+ *     @OA\Property(property="completed", type="boolean"),
+ *     @OA\Property(property="labels", type="array", maxItems=50, @OA\Items(ref="#/components/schemas/CardLabel")),
+ *     @OA\Property(property="assignee_ids", type="array", uniqueItems=true, @OA\Items(type="integer", format="int64", minimum=1)),
+ *     @OA\Property(property="checklists", type="array", maxItems=20, @OA\Items(ref="#/components/schemas/CardChecklist")),
+ *     @OA\Property(
+ *         property="base",
+ *         type="object",
+ *         additionalProperties=false,
+ *         minProperties=1,
+ *         description="Original values of exactly the fields included in this update. A mismatch returns HTTP 409.",
+ *         @OA\Property(property="title", type="string", minLength=1, maxLength=255),
+ *         @OA\Property(property="description", type="string", nullable=true, maxLength=10000),
+ *         @OA\Property(property="start_date", type="string", format="date", nullable=true),
+ *         @OA\Property(property="due_date", type="string", format="date", nullable=true),
+ *         @OA\Property(property="completed", type="boolean"),
+ *         @OA\Property(property="labels", type="array", maxItems=50, @OA\Items(ref="#/components/schemas/CardLabel")),
+ *         @OA\Property(property="assignee_ids", type="array", uniqueItems=true, @OA\Items(type="integer", format="int64", minimum=1)),
+ *         @OA\Property(property="checklists", type="array", maxItems=20, @OA\Items(ref="#/components/schemas/CardChecklist"))
  *     ),
  *     minProperties=1
  * )

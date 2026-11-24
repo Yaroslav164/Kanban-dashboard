@@ -3,6 +3,11 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { HttpError, request } from './api'
 import { useBoard, type User, type Summary, type Card, type Column } from './board'
 import BoardTeam from './BoardTeam.vue'
+import BoardViews from './BoardViews.vue'
+import CardDetails from './CardDetails.vue'
+import CardTemplatePicker from './CardTemplatePicker.vue'
+import SaveCardTemplate from './SaveCardTemplate.vue'
+import type { CardTemplate } from './card-templates'
 import { subscribe } from './realtime'
 
 const store = useBoard(),
@@ -18,6 +23,21 @@ const name = ref(''),
   confirm = ref('')
 const dragged = ref<number | null>(null),
   hover = ref<string | null>(null)
+const views = [
+  { id: 'board', label: 'Доска' },
+  { id: 'list', label: 'Список' },
+  { id: 'tasks', label: 'Дела' },
+  { id: 'calendar', label: 'Календарь' },
+] as const
+const view = ref<(typeof views)[number]['id']>('board')
+const detail = ref<{ boardId: number; cardId: number } | null>(null),
+  detailDialog = ref<HTMLDialogElement>()
+const detailCard = computed(() => {
+  const board = store.active
+  const selected = detail.value
+  if (!board || selected?.boardId !== board.id) return null
+  return board.columns.flatMap((column) => column.cards).find(({ id }) => id === selected.cardId)
+})
 const editor = ref<{
   kind: 'доска' | 'колонка' | 'карточка'
   path: string
@@ -29,6 +49,7 @@ const title = ref(''),
   description = ref(''),
   dialog = ref<HTMLDialogElement>(),
   firstField = ref<HTMLInputElement>()
+const template = ref<CardTemplate | null>(null)
 const visible = computed(() =>
   store.boards.filter((b) => b.title.toLocaleLowerCase().includes(query.value.toLocaleLowerCase())),
 )
@@ -125,6 +146,26 @@ async function select(id: number | null) {
   history.replaceState(null, '', id ? '/boards?board=' + id : '/boards')
   await store.select(id)
 }
+async function openCard(card: Card) {
+  if (!store.active) return
+  detail.value = { boardId: store.active.id, cardId: card.id }
+  await nextTick()
+  if (detailCard.value && !detailDialog.value?.open) detailDialog.value?.showModal()
+}
+function closeCard() {
+  detailDialog.value?.close()
+  detail.value = null
+}
+watch(detailCard, (card) => {
+  if (!card && detail.value) closeCard()
+})
+async function completeCard(card: Card, completed: boolean) {
+  if (!store.can('cards.edit')) return
+  await run(async () => {
+    await request('/api/columns/' + card.column_id + '/cards/' + card.id, 'PATCH', { completed })
+    await store.refresh()
+  })
+}
 async function edit(
   kind: 'доска' | 'колонка' | 'карточка',
   path: string,
@@ -132,9 +173,11 @@ async function edit(
   remove = false,
 ) {
   const boardId = kind === 'доска' && !item ? null : store.active?.id
-  if (boardId === undefined || (boardId !== null && !store.canEdit)) return
-  if (kind === 'доска' && remove && store.role !== 'owner') return
-  editor.value = { kind, path, boardId, id: item?.id, remove }
+  if (boardId === undefined) return
+  const entry = { kind, path, boardId, id: item?.id, remove }
+  if (!canSave(entry)) return
+  editor.value = entry
+  template.value = null
   title.value = item?.title ?? ''
   description.value = (item as Card)?.description ?? ''
   await nextTick()
@@ -147,14 +190,24 @@ function close() {
 }
 function canSave(entry: NonNullable<typeof editor.value>) {
   if (entry.boardId === null) return true
-  if (entry.boardId !== store.active?.id || !store.canEdit) return false
-  return entry.kind !== 'доска' || !entry.remove || store.role === 'owner'
+  if (entry.boardId !== store.active?.id) return false
+  if (entry.kind === 'доска')
+    return entry.remove ? store.role === 'owner' : store.can('board.rename')
+  if (entry.kind === 'колонка') {
+    return store.can(entry.remove ? 'columns.delete' : entry.id ? 'columns.edit' : 'columns.create')
+  }
+  return store.can(entry.remove ? 'cards.delete' : entry.id ? 'cards.edit' : 'cards.create')
 }
 watch(
-  () => [store.active?.id, store.role],
-  () => {
-    if (!store.canEdit) endDrag()
-    if (editor.value && !canSave(editor.value)) close()
+  () => store.can('cards.move'),
+  (canMove) => {
+    if (!canMove) endDrag()
+  },
+)
+watch(
+  () => editor.value && canSave(editor.value),
+  (allowed) => {
+    if (allowed === false) close()
   },
 )
 async function save() {
@@ -162,6 +215,12 @@ async function save() {
   if (!entry || !canSave(entry)) return
   await run(async () => {
     const path = entry.path + (entry.id ? '/' + entry.id : '')
+    if (entry.kind === 'карточка' && !entry.id && !entry.remove && template.value) {
+      await request(path + '/from-template', 'POST', { template_id: template.value.id })
+      close()
+      await store.refresh()
+      return
+    }
     const result = await request<Summary>(
       path,
       entry.remove ? 'DELETE' : entry.id ? 'PATCH' : 'POST',
@@ -178,7 +237,7 @@ async function save() {
   })
 }
 function beginDrag(e: DragEvent, id: number) {
-  if (!store.canEdit) {
+  if (!store.can('cards.move')) {
     e.preventDefault()
     return
   }
@@ -189,7 +248,7 @@ function beginDrag(e: DragEvent, id: number) {
   }
 }
 function allowDrop(e: DragEvent, before: number | null = null) {
-  if (!store.canEdit || dragged.value === null) return
+  if (!store.can('cards.move') || dragged.value === null) return
   e.preventDefault()
   hover.value = before === null ? null : String(before)
 }
@@ -197,7 +256,7 @@ async function drop(column: Column, before: number | null) {
   const id = dragged.value
   dragged.value = null
   hover.value = null
-  if (id !== null && store.canEdit) await run(() => store.move(id, column, before))
+  if (id !== null && store.can('cards.move')) await run(() => store.move(id, column, before))
 }
 const nouns = {
   доска: ['Новая доска', 'доску'],
@@ -336,10 +395,13 @@ const nouns = {
               :role="store.role"
               @access-changed="syncBoard"
             />
-            <details v-if="store.canEdit">
+            <details v-if="store.can('board.rename') || store.role === 'owner'">
               <summary aria-label="Действия с доской">•••</summary>
               <div class="menu">
-                <button @click="edit('доска', '/api/boards', store.active)">
+                <button
+                  v-if="store.can('board.rename')"
+                  @click="edit('доска', '/api/boards', store.active)"
+                >
                   Переименовать доску</button
                 ><button
                   v-if="store.role === 'owner'"
@@ -350,7 +412,7 @@ const nouns = {
               </div>
             </details>
             <button
-              v-if="store.canEdit"
+              v-if="store.can('columns.create')"
               class="primary"
               @click="edit('колонка', '/api/boards/' + store.active.id + '/columns')"
             >
@@ -358,7 +420,28 @@ const nouns = {
             </button>
           </div>
         </div>
-        <div class="lanes">
+        <div class="board-views" role="group" aria-label="Представление доски">
+          <button
+            v-for="option in views"
+            :key="option.id"
+            :aria-pressed="view === option.id"
+            @click="view = option.id"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+        <BoardViews
+          v-if="view !== 'board'"
+          :key="store.active.id"
+          :view="view"
+          :board-id="store.active.id"
+          :columns="store.active.columns"
+          :can-complete="store.can('cards.edit')"
+          :busy="busy"
+          @open="openCard"
+          @complete="completeCard"
+        />
+        <div v-else class="lanes">
           <section
             v-for="(col, i) in store.active.columns"
             :key="col.id"
@@ -371,14 +454,16 @@ const nouns = {
               <span class="dot" />
               <h2>{{ col.title }}</h2>
               <small>{{ col.cards.length }}</small>
-              <details v-if="store.canEdit">
+              <details v-if="store.can('columns.edit') || store.can('columns.delete')">
                 <summary :aria-label="'Действия с колонкой ' + col.title">•••</summary>
                 <div class="menu">
                   <button
+                    v-if="store.can('columns.edit')"
                     @click="edit('колонка', '/api/boards/' + store.active.id + '/columns', col)"
                   >
                     Переименовать</button
                   ><button
+                    v-if="store.can('columns.delete')"
                     @click="
                       edit('колонка', '/api/boards/' + store.active.id + '/columns', col, true)
                     "
@@ -391,44 +476,49 @@ const nouns = {
             <article
               v-for="card in col.cards"
               :key="card.id"
-              :draggable="store.canEdit"
+              :draggable="store.can('cards.move')"
               :class="{ target: hover === String(card.id) }"
               @dragstart="beginDrag($event, card.id)"
               @dragend="endDrag"
               @dragover.stop="allowDrop($event, card.id)"
               @drop.stop.prevent="drop(col, card.id)"
             >
-              <button
-                v-if="store.canEdit"
-                class="card-body"
-                @click="edit('карточка', '/api/columns/' + col.id + '/cards', card)"
-              >
+              <button class="card-body" :aria-label="card.title" @click="openCard(card)">
                 <strong>{{ card.title }}</strong>
-                <p v-if="card.description">{{ card.description }}</p>
+                <span v-if="card.description" class="card-description">{{ card.description }}</span>
+                <span v-if="card.labels.length" class="card-meta-labels">
+                  <span v-for="label in card.labels" :key="label.name">
+                    <i :style="{ background: label.color }" aria-hidden="true" />{{ label.name }}
+                  </span>
+                </span>
+                <small v-if="card.completed" class="card-status">Выполнено</small>
+                <time v-if="card.due_date" class="card-status" :datetime="card.due_date">
+                  Срок {{ card.due_date.split('-').reverse().join('.') }}
+                </time>
               </button>
-              <div v-else class="card-body readonly-card">
-                <strong>{{ card.title }}</strong>
-                <p v-if="card.description">{{ card.description }}</p>
-              </div>
-              <details v-if="store.canEdit">
+              <details v-if="store.can('cards.delete') || store.can('cards.move')">
                 <summary :aria-label="'Действия с карточкой ' + card.title">•••</summary>
                 <div class="menu">
                   <button
+                    v-if="store.can('cards.delete')"
                     @click="edit('карточка', '/api/columns/' + col.id + '/cards', card, true)"
                   >
-                    Удалить карточку</button
-                  ><button
-                    v-for="dest in store.active.columns"
-                    :key="dest.id"
-                    @click="run(() => store.move(card.id, dest, null))"
-                  >
-                    В конец · {{ dest.title }}
+                    Удалить карточку
                   </button>
+                  <template v-if="store.can('cards.move')">
+                    <button
+                      v-for="dest in store.active.columns"
+                      :key="dest.id"
+                      @click="run(() => store.move(card.id, dest, null))"
+                    >
+                      В конец · {{ dest.title }}
+                    </button>
+                  </template>
                 </div>
               </details>
             </article>
             <button
-              v-if="store.canEdit"
+              v-if="store.can('cards.create')"
               class="add-card"
               @click="edit('карточка', '/api/columns/' + col.id + '/cards')"
             >
@@ -436,12 +526,51 @@ const nouns = {
             </button>
           </section>
           <div v-if="!store.active.columns.length" class="empty">
-            <h2>{{ store.canEdit ? 'Добавьте первую колонку' : 'На доске пока нет колонок' }}</h2>
-            <p v-if="store.canEdit">Каждая колонка обозначает этап работы.</p>
+            <h2>
+              {{
+                store.can('columns.create')
+                  ? 'Добавьте первую колонку'
+                  : 'На доске пока нет колонок'
+              }}
+            </h2>
+            <p v-if="store.can('columns.create')">Каждая колонка обозначает этап работы.</p>
           </div>
         </div></template
       >
     </main>
+    <dialog
+      ref="detailDialog"
+      class="card-dialog"
+      aria-labelledby="card-dialog-title"
+      @close="detail = null"
+    >
+      <div v-if="detail && detailCard" class="card-dialog-head">
+        <h2 id="card-dialog-title">{{ detailCard.title }}</h2>
+        <button type="button" class="secondary" aria-label="Закрыть карточку" @click="closeCard">
+          ×
+        </button>
+      </div>
+      <CardDetails
+        v-if="detail && detailCard"
+        :key="detailCard.id"
+        :card="detailCard"
+        :board-id="detail.boardId"
+        :user-id="user.id"
+        :can-edit="store.can('cards.edit')"
+        :can-comment="store.can('cards.comment')"
+        :can-attach="store.can('cards.attach')"
+        @changed="syncBoard"
+      >
+        <template v-if="store.can('cards.create')" #template="{ dirty }">
+          <SaveCardTemplate
+            :board-id="detail.boardId"
+            :card-id="detailCard.id"
+            :title="detailCard.title"
+            :dirty="dirty"
+          />
+        </template>
+      </CardDetails>
+    </dialog>
     <dialog ref="dialog" @cancel="editor = null">
       <form v-if="editor" @submit.prevent="save">
         <p class="kicker">{{ editor.kind.toUpperCase() }}</p>
@@ -454,18 +583,37 @@ const nouns = {
                 : nouns[editor.kind][0]
           }}
         </h2>
-        <template v-if="!editor.remove"
-          ><label>Название<input ref="firstField" v-model="title" required maxlength="255" /></label
-          ><label v-if="editor.kind === 'карточка'"
-            >Описание<textarea v-model="description" maxlength="10000" rows="4" /></label
-        ></template>
+        <template v-if="!editor.remove">
+          <CardTemplatePicker
+            v-if="editor.kind === 'карточка' && !editor.id && editor.boardId !== null"
+            :board-id="editor.boardId"
+            @select="template = $event"
+          />
+          <template v-if="template">
+            <p>
+              <strong>{{ template.title }}</strong>
+            </p>
+            <p v-if="template.description">{{ template.description }}</p>
+          </template>
+          <template v-else>
+            <label
+              >Название<input ref="firstField" v-model="title" required maxlength="255"
+            /></label>
+            <label v-if="editor.kind === 'карточка'">
+              Описание<textarea v-model="description" maxlength="10000" rows="4" />
+            </label>
+          </template>
+        </template>
         <p v-else>
           «{{ title }}» будет удалена{{ editor.kind === 'карточка' ? '' : ' вместе с содержимым' }}.
         </p>
         <p v-if="message" class="error" role="alert">{{ message }}</p>
         <div class="actions">
           <button type="button" class="secondary" @click="close">Отмена</button
-          ><button class="primary" :disabled="busy || (!editor.remove && !title.trim())">
+          ><button
+            class="primary"
+            :disabled="busy || (!editor.remove && !template && !title.trim())"
+          >
             {{ editor.remove ? 'Удалить' : 'Сохранить' }}
           </button>
         </div>

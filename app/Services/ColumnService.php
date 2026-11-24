@@ -33,7 +33,7 @@ final class ColumnService
     public function create(int $owner, int $board, string $title): Column
     {
         return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $board, $title) {
-            $locked = $this->boards->lock($owner, $board);
+            $locked = $this->boards->lock($owner, $board, 'columns.create');
             $column = $this->columns->create($board, $title);
             BoardChanged::dispatch($this->boards->recipients($locked), $board);
 
@@ -44,7 +44,7 @@ final class ColumnService
     public function rename(int $owner, int $board, int $id, string $title): Column
     {
         return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $board, $id, $title) {
-            $locked = $this->boards->lock($owner, $board);
+            $locked = $this->boards->lock($owner, $board, 'columns.edit');
             $column = $this->columns->rename($this->columns->find($owner, $id, $board), $title);
             BoardChanged::dispatch($this->boards->recipients($locked), $board);
 
@@ -55,7 +55,7 @@ final class ColumnService
     public function delete(int $owner, int $board, int $id): void
     {
         $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $board, $id) {
-            $locked = $this->boards->lock($owner, $board);
+            $locked = $this->boards->lock($owner, $board, 'columns.delete');
             $this->columns->delete($this->columns->find($owner, $id, $board));
             BoardChanged::dispatch($this->boards->recipients($locked), $board);
 

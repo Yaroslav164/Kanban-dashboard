@@ -8,6 +8,7 @@ use App\Models\Card;
 use App\Models\Column;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 final class CardRepository
 {
@@ -35,6 +36,12 @@ final class CardRepository
         return (int) $card->board_id;
     }
 
+    public function findOnBoard(int $board, int $id): Card
+    {
+        return Card::query()->whereHas('column', fn (Builder $columns) => $columns->where('board_id', $board))
+            ->findOrFail($id);
+    }
+
     public function create(int $column, array $attributes, float $position): Card
     {
         return Card::query()->create($attributes + ['column_id' => $column, 'position' => $this->encodePosition($position)]);
@@ -50,6 +57,14 @@ final class CardRepository
     public function delete(Card $card): void
     {
         $card->delete();
+    }
+
+    public function removeAssignee(int $board, int $user): void
+    {
+        DB::table('card_assignees')->where('user_id', $user)
+            ->whereIn('card_id', Card::query()->select('id')->whereHas('column', fn (Builder $columns) => $columns
+                ->where('board_id', $board)))
+            ->delete();
     }
 
     public function lastPosition(int $column): ?float

@@ -9,13 +9,13 @@ use App\Models\BoardRole;
 use App\Models\Card;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Query\JoinClause;
 
 final class BoardRepository
 {
     public function all(int $user): Collection
     {
-        return $this->withRole($user)->orderBy('id')->get();
+        return $this->withRole($user)->orderBy('boards.id')->get();
     }
 
     public function find(int $user, int $id): Board
@@ -28,25 +28,26 @@ final class BoardRepository
         return Board::query()->accessibleTo($user)->findOrFail($id);
     }
 
-    public function lock(int $user, int $id, BoardRole $requiredRole = BoardRole::Editor): Board
+    public function lock(int $user, int $id, BoardRole|string $permission): Board
     {
-        $board = Board::query()->accessibleTo($user)->lockForUpdate()->findOrFail($id);
+        Board::query()->accessibleTo($user)->lockForUpdate()->findOrFail($id);
 
-        // Re-read membership after the board lock serializes this write with role changes.
-        $role = $board->user_id === $user
-            ? BoardRole::Owner->value
-            : $board->members()->whereKey($user)->value('board_members.role');
-        abort_if($role === null, 404, 'Resource not found.');
-        abort_if($role !== BoardRole::Owner->value && $role !== $requiredRole->value, 403);
+        // A queued mutation must observe membership and permissions after obtaining the lock.
+        $board = $this->withRole($user)->findOrFail($id);
+        if ($permission === BoardRole::Owner) {
+            abort_unless($board->role === 'owner', 403);
+        } else {
+            abort_unless(in_array($permission, $board->permissions, true), 403);
+        }
 
-        return $board->setAttribute('role', $role)->syncOriginalAttribute('role');
+        return $board;
     }
 
     public function create(int $owner, string $title): Board
     {
-        return Board::query()->create(['user_id' => $owner, 'title' => $title])
-            ->setAttribute('role', BoardRole::Owner->value)
-            ->syncOriginalAttribute('role');
+        $board = Board::query()->create(['user_id' => $owner, 'title' => $title]);
+
+        return $this->withRole($owner)->findOrFail($board->id);
     }
 
     public function rename(Board $board, string $title): Board
@@ -72,16 +73,18 @@ final class BoardRepository
 
     private function withRole(int $user): Builder
     {
-        $membership = DB::table('board_members')
-            ->select('role')
-            ->whereColumn('board_id', 'boards.id')
-            ->where('user_id', $user);
-
         return Board::query()->accessibleTo($user)
+            ->leftJoin('board_members as membership', function (JoinClause $join) use ($user) {
+                $join->on('membership.board_id', '=', 'boards.id')->where('membership.user_id', $user);
+            })
+            ->leftJoin('board_roles as custom', function (JoinClause $join) {
+                $join->on('custom.id', '=', 'membership.custom_role_id')->on('custom.board_id', '=', 'boards.id');
+            })
             ->select('boards.*')
-            ->selectRaw("case when boards.user_id = ? then 'owner' else ({$membership->toSql()}) end as role", [
-                $user,
-                ...$membership->getBindings(),
-            ]);
+            ->selectRaw("case when boards.user_id = ? then 'owner' when custom.id is not null then concat('custom-', custom.id) else membership.role end as role", [$user])
+            ->selectRaw("case when boards.user_id = ? then ? when custom.id is not null then cast(custom.permissions as text) when membership.role = 'editor' then ? else '[]' end as permissions", [
+                $user, json_encode(BoardRole::PERMISSIONS), json_encode(BoardRole::PERMISSIONS),
+            ])
+            ->withCasts(['permissions' => 'array']);
     }
 }

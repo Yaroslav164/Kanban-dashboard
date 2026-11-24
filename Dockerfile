@@ -23,7 +23,8 @@ RUN apt-get update \
     && docker-php-ext-enable pcov \
     && rm -rf /var/lib/apt/lists/*
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
-    && printf 'pcov.directory=/app/app\n' > "$PHP_INI_DIR/conf.d/pcov-coverage.ini"
+    && printf 'pcov.directory=/app/app\n' > "$PHP_INI_DIR/conf.d/pcov-coverage.ini" \
+    && printf 'upload_max_filesize=10M\npost_max_size=11M\n' > "$PHP_INI_DIR/conf.d/uploads.ini"
 
 FROM php AS dependencies
 COPY --from=composer-bin /usr/bin/composer /usr/local/bin/composer

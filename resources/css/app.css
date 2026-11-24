@@ -172,9 +172,6 @@ textarea {
   color: #526457;
   font-size: 0.88rem;
 }
-.card-body.readonly-card {
-  cursor: auto;
-}
 .team-dialog {
   width: min(560px, 94vw);
   padding: clamp(16px, 4vw, 30px);
@@ -532,13 +529,23 @@ article.target {
   min-width: 0;
   padding: 0;
   overflow-wrap: anywhere;
-  cursor: grab;
+  cursor: pointer;
 }
-.card-body p {
+.card-description {
+  display: block;
   font-size: 0.85rem;
   color: #657269;
   margin-top: 6px;
   white-space: pre-wrap;
+}
+.card-status {
+  display: inline-block;
+  margin: 8px 6px 0 0;
+  color: #345a4c;
+  background: #ebf1e9;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font-size: 0.76rem;
 }
 .add-card {
   color: #485e50;
@@ -561,6 +568,207 @@ dialog::backdrop {
 dialog .actions {
   margin-top: 20px;
   justify-content: flex-end;
+}
+.card-dialog {
+  width: min(1000px, 94vw);
+  height: min(760px, 92dvh);
+  max-height: 92vh;
+  overflow: hidden;
+  padding: 0;
+}
+.card-dialog[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.card-meta-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+}
+.card-meta-labels span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  overflow-wrap: anywhere;
+}
+.card-meta-labels i {
+  flex: 0 0 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+}
+.card-dialog-head,
+.calendar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.card-dialog-head {
+  padding: clamp(10px, 2.5vw, 22px);
+  border-bottom: 1px solid #d8dfea;
+}
+.card-dialog-head button {
+  flex-shrink: 0;
+  min-height: 44px;
+  min-width: 44px;
+}
+.card-dialog-head h2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin: 0;
+  font-size: clamp(1rem, 3.5vw, 1.5rem);
+  overflow-wrap: anywhere;
+}
+.board-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.board-views button {
+  padding: 7px 12px;
+  border-radius: 6px;
+  color: #485e50;
+}
+.board-views button:hover,
+.board-views button[aria-pressed='true'] {
+  background: #e1e9e1;
+  color: #163a32;
+}
+.board-views button[aria-pressed='true'] {
+  font-weight: 700;
+}
+.card-list,
+.calendar,
+.task-group {
+  border: 1px solid #d4dbd2;
+  border-radius: 10px;
+  background: #fff;
+}
+.card-list,
+.calendar-scroll {
+  overflow-x: auto;
+}
+.card-list table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 540px;
+}
+.card-list :is(th, td) {
+  padding: 12px 16px;
+  text-align: left;
+}
+.card-list th {
+  background: #ebeee7;
+  color: #485e50;
+  font-weight: 600;
+}
+.card-list tr + tr td {
+  border-top: 1px solid #ebeee7;
+}
+.card-list time {
+  white-space: nowrap;
+}
+.row-title {
+  text-align: left;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.tasks {
+  display: grid;
+  gap: 16px;
+  max-width: 790px;
+}
+.task-group {
+  padding: 16px;
+}
+.task-group h2 {
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+.task-group :is(small, p, time) {
+  color: #5c6c61;
+  font-size: 0.85rem;
+}
+.task-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.task-group li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid #ebeee7;
+}
+.task-group input {
+  width: 17px;
+  height: 17px;
+  accent-color: #345a4c;
+}
+.task-group li small {
+  display: block;
+}
+.calendar-head {
+  padding: 12px 16px;
+  flex-wrap: wrap;
+}
+.calendar-head h2 {
+  font-size: 1.1rem;
+}
+.calendar-head h2::first-letter {
+  text-transform: uppercase;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(94px, 1fr));
+}
+.calendar-weekday {
+  padding: 8px 10px;
+  background: #ebeee7;
+  color: #485e50;
+}
+.calendar-day {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 5px;
+  min-height: 84px;
+  border-top: 1px solid #ebeee7;
+  border-right: 1px solid #ebeee7;
+}
+.calendar-day:nth-child(7n) {
+  border-right: 0;
+}
+.calendar-day time {
+  justify-self: start;
+  padding: 3px 7px;
+  font-size: 0.85rem;
+}
+.calendar-day time[aria-current='date'] {
+  border-radius: 5px;
+  background: #345a4c;
+  color: #fff;
+}
+.calendar-event {
+  background: #e5ece2;
+  padding: 5px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.calendar-event:hover {
+  background: #d7e4d4;
+}
+.calendar-event small {
+  display: block;
+  color: #485e50;
 }
 @media (max-width: 750px) {
   .login {

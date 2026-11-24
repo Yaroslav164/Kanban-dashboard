@@ -11,6 +11,7 @@
     "dev": "vite",
     "lint": "eslint . && prettier --check resources/js resources/css",
     "test": "vitest run",
+    "test:card-coverage": "vitest run --coverage --coverage.include=resources/js/CardDetails.vue --coverage.include=resources/js/SaveCardTemplate.vue --coverage.include=resources/js/CardTemplatePicker.vue --coverage.include=resources/js/card-templates.ts --coverage.reporter=text --coverage.thresholds.lines=80 --coverage.thresholds.perFile",
     "test:e2e": "playwright test",
     "typecheck": "vue-tsc --noEmit"
   },
@@ -25,6 +26,7 @@
     "@playwright/test": "^1.58.0",
     "@types/node": "^24.0.0",
     "@vitejs/plugin-vue": "^6.0.0",
+    "@vitest/coverage-v8": "4.1.12",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "eslint": "^10.15.0",

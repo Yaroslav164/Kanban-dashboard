@@ -94,6 +94,11 @@ test('HTTP-ответы CRUD, ошибок и сессии соответств�
     previous_card_id: null,
     next_card_id: null,
   })
+  const templates = board + '/card-templates'
+  const template = await check('POST', templates, 201, { card_id: vars.card, name: 'Review' })
+  await check('GET', templates, 200)
+  await check('POST', cards + '/from-template', 201, { template_id: template.id })
+  await check('POST', cards + '/from-template', 422, { template_id: 0 })
   await check('GET', board, 200)
   await check('DELETE', card, 204)
   await check('GET', card, 404)

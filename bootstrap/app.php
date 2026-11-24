@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('api/*') ? null : '/login');
         if (getenv('RENDER') === 'true') {
             $middleware->trustProxies(at: ['127.0.0.1'], headers: Request::HEADER_X_FORWARDED_PROTO);
         }

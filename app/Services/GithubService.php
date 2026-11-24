@@ -11,7 +11,11 @@ use Laravel\Socialite\Two\User as GithubUser;
 
 class GithubService
 {
-    public function __construct(private UserRepository $users, private UnitOfWork $work) {}
+    public function __construct(
+        private UserRepository $users,
+        private UnitOfWork $work,
+        private DemoBoardService $demo,
+    ) {}
 
     public function resolve(GithubUser $profile, ?int $linkTo): User
     {
@@ -40,10 +44,15 @@ class GithubService
                     && filter_var($entry['email'] ?? null, FILTER_VALIDATE_EMAIL)) {
                     $email = mb_strtolower($entry['email']);
 
-                    return $this->work->run(fn ($tx) => $tx->commit($this->users->create([
-                        'name' => mb_substr($profile->getName() ?: ($profile->getNickname() ?: $email), 0, 255),
-                        'email' => $email, 'github_id' => $id,
-                    ])));
+                    return $this->work->run(function (UnitOfWork $tx) use ($profile, $email, $id) {
+                        $user = $this->users->create([
+                            'name' => mb_substr($profile->getName() ?: ($profile->getNickname() ?: $email), 0, 255),
+                            'email' => $email, 'github_id' => $id,
+                        ]);
+                        $this->demo->createFor($user);
+
+                        return $tx->commit($user);
+                    });
                 }
             }
             throw new DomainException('email_unverified');

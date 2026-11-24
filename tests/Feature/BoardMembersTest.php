@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use App\Events\BoardChanged;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
 uses(RefreshDatabase::class);
@@ -102,4 +104,56 @@ it('notifies collaborators about changes and sends one last update when access i
     $this->patchJson($this->boardUrl, ['title' => 'Private'])->assertOk();
 
     expect($channels)->toBe([$both, $both, $both, [$both[0]]]);
+});
+
+it('scopes custom roles to a board and enforces permission changes on existing members', function () {
+    $url = "$this->boardUrl/roles";
+    $role = $this->postJson($url, ['name' => 'Coordinator', 'permissions' => ['columns.create']])
+        ->assertCreated()->json('data');
+    $this->postJson($url, ['name' => 'Unknown grant', 'permissions' => ['owner']])->assertUnprocessable();
+    $other = $this->postJson('/api/boards', ['title' => 'Other'])->json('data.id');
+    $this->postJson("/api/boards/$other/members", ['email' => $this->member->email, 'role' => $role['key']])->assertUnprocessable();
+    $this->postJson($this->membersUrl, ['email' => $this->member->email, 'role' => $role['key']])->assertCreated();
+    $this->actingAs($this->member);
+    $this->getJson($this->boardUrl)->assertJsonPath('data.role', $role['key'])->assertJsonPath('data.permissions', ['columns.create']);
+    $this->postJson("$this->boardUrl/columns", ['title' => 'Inbox'])->assertCreated();
+    $this->patchJson($this->boardUrl, ['title' => 'Changed'])->assertForbidden();
+    $this->patchJson("$url/{$role['id']}", ['name' => 'Escalated', 'permissions' => ['board.rename']])->assertForbidden();
+    $this->actingAs($this->owner)->patchJson("$url/{$role['id']}", ['name' => 'Read only', 'permissions' => []])->assertOk();
+    $this->deleteJson("$url/{$role['id']}")->assertUnprocessable();
+    $this->actingAs($this->member)->postJson("$this->boardUrl/columns", ['title' => 'Denied'])->assertForbidden();
+    $this->actingAs($this->owner)->patchJson($this->memberUrl, ['role' => 'viewer'])->assertOk();
+    $this->deleteJson("$url/{$role['id']}")->assertNoContent();
+});
+
+it('isolates custom roles from other boards and rejects unknown or duplicate permissions', function () {
+    $url = "$this->boardUrl/roles";
+    $payload = ['name' => 'Coordinator', 'permissions' => ['cards.edit']];
+    $role = $this->postJson($url, $payload)->assertCreated()->json('data');
+    $this->postJson($url, $payload)->assertUnprocessable()->assertJsonValidationErrors('name');
+    $this->postJson($url, ['name' => 'Duplicate grants', 'permissions' => ['cards.edit', 'cards.edit']])
+        ->assertUnprocessable()->assertJsonValidationErrors('permissions.1');
+    $this->postJson($url, ['name' => 'Unsupported grant', 'permissions' => ['roles.manage']])
+        ->assertUnprocessable()->assertJsonValidationErrors('permissions.0');
+
+    $other = $this->postJson('/api/boards', ['title' => 'Other'])->assertCreated()->json('data.id');
+    $otherRoles = "/api/boards/$other/roles";
+    $otherRole = $this->postJson($otherRoles, $payload)->assertCreated()->json('data');
+    $this->patchJson("$otherRoles/{$role['id']}", $payload)->assertNotFound();
+    $this->deleteJson("$otherRoles/{$role['id']}")->assertNotFound();
+    $this->getJson($otherRoles)->assertExactJson(['data' => [$otherRole]]);
+
+    $this->actingAs($this->member)->getJson($url)->assertNotFound();
+    $this->actingAs($this->owner)->postJson($this->membersUrl, ['email' => $this->member->email, 'role' => 'viewer'])->assertCreated();
+    $this->patchJson($this->memberUrl, ['role' => $otherRole['key']])
+        ->assertUnprocessable()->assertJsonValidationErrors('role');
+
+    expect(fn () => DB::transaction(fn () => DB::table('board_members')
+        ->where('board_id', $this->board)
+        ->where('user_id', $this->member->id)
+        ->update(['custom_role_id' => $otherRole['id']])))->toThrow(QueryException::class);
+
+    $this->actingAs($this->member)->getJson($url)->assertExactJson(['data' => [$role]]);
+    $this->deleteJson("$url/{$role['id']}")->assertForbidden();
+    $this->postJson($url, ['name' => 'Escalated', 'permissions' => ['cards.delete']])->assertForbidden();
 });

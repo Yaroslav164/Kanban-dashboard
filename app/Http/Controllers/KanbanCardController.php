@@ -25,7 +25,7 @@ final class KanbanCardController extends KanbanController
         $input = $this->input($request, [
             'title' => 'required|string|max:255',
             'description' => 'sometimes|nullable|string|max:10000',
-        ]);
+        ] + $this->detailRules());
 
         return $this->data($this->cards->create($request->user()->id, $this->id($request, 'column'), $input), 201);
     }
@@ -37,12 +37,48 @@ final class KanbanCardController extends KanbanController
 
     public function update(Request $request): JsonResponse
     {
-        $input = $this->input($request, [
+        $rules = [
             'title' => 'sometimes|required|string|max:255',
             'description' => 'sometimes|nullable|string|max:10000',
-        ], requireFields: true);
+        ] + $this->detailRules();
+        $fields = array_filter(array_keys($rules), fn (string $key): bool => ! str_contains($key, '.'));
+        $baseRules = ['base' => 'sometimes|array:'.implode(',', $fields)];
+        foreach ($rules as $key => $rule) {
+            $baseRules["base.$key"] = $rule;
+        }
+        $input = $this->input($request, $rules + $baseRules, requireFields: true);
+        $base = $input['base'] ?? null;
+        unset($input['base']);
 
-        return $this->data($this->cards->update($request->user()->id, $this->id($request, 'column'), $this->id($request, 'card'), $input));
+        if ($input === [] || ($base !== null && (array_diff_key($input, $base) !== [] || array_diff_key($base, $input) !== []))) {
+            throw ValidationException::withMessages(['base' => 'Provide an original value for each field in the update.']);
+        }
+
+        return $this->data($this->cards->update($request->user()->id, $this->id($request, 'column'), $this->id($request, 'card'), $input, $base));
+    }
+
+    private function detailRules(): array
+    {
+        return [
+            'start_date' => 'sometimes|nullable|date_format:Y-m-d|after:0000-12-31',
+            'due_date' => 'sometimes|nullable|date_format:Y-m-d|after:0000-12-31',
+            'completed' => 'sometimes|required|boolean:strict',
+            'labels' => 'sometimes|array|list|max:50',
+            'labels.*' => 'required|array:name,color',
+            'labels.*.name' => 'required|string|max:50|distinct:ignore_case',
+            'labels.*.color' => 'required|string|regex:/^#[0-9a-fA-F]{6}$/D',
+            'assignee_ids' => 'sometimes|array|list',
+            'assignee_ids.*' => 'required|integer:strict|min:1|distinct',
+            'checklists' => 'sometimes|array|list|max:20',
+            'checklists.*' => 'required|array:id,title,items',
+            'checklists.*.id' => 'required|uuid|distinct:ignore_case',
+            'checklists.*.title' => 'required|string|max:255',
+            'checklists.*.items' => 'present|array|list|max:100',
+            'checklists.*.items.*' => 'required|array:id,title,completed',
+            'checklists.*.items.*.id' => 'required|uuid|distinct:ignore_case',
+            'checklists.*.items.*.title' => 'required|string|max:255',
+            'checklists.*.items.*.completed' => 'required|boolean:strict',
+        ];
     }
 
     public function destroy(Request $request): Response

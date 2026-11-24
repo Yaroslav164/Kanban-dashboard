@@ -9,8 +9,11 @@ use App\Models\Board;
 use App\Models\Card;
 use App\Repositories\BoardRepository;
 use App\Repositories\CardRepository;
+use App\Repositories\CardTemplateRepository;
 use App\Repositories\ColumnRepository;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 final class CardService
@@ -21,6 +24,7 @@ final class CardService
         private BoardRepository $boards,
         private ColumnRepository $columns,
         private CardRepository $cards,
+        private CardTemplateRepository $templates,
         private UnitOfWork $transactions,
     ) {}
 
@@ -39,25 +43,66 @@ final class CardService
     public function create(int $owner, int $column, array $attributes): Card
     {
         return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $column, $attributes) {
-            $board = $this->lockColumn($owner, $column);
-            $last = $this->cards->lastPosition($column);
-            $position = $this->positionBetween($last, null);
-            if ($position === null) {
-                $this->compact($column);
-                $position = $this->cards->lastPosition($column) + self::POSITION_STEP;
-            }
-            $card = $this->cards->create($column, $attributes, $position);
-            BoardChanged::dispatch($this->boards->recipients($board), $board->id);
+            $board = $this->lockColumn($owner, $column, 'cards.create');
 
-            return $transaction->commit($card);
+            return $transaction->commit($this->append($board, $column, $attributes));
         });
     }
 
-    public function update(int $owner, int $column, int $id, array $attributes): Card
+    public function createFromTemplate(int $owner, int $column, int $templateId): Card
     {
-        return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $column, $id, $attributes) {
-            $board = $this->lockColumn($owner, $column);
-            $card = $this->cards->update($this->cards->find($owner, $id, $column), $attributes);
+        return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $column, $templateId) {
+            $board = $this->lockColumn($owner, $column, 'cards.create');
+            $template = $this->templates->find($board->id, $templateId);
+            $checklists = array_map(static fn (array $checklist): array => [
+                'id' => (string) Str::uuid(),
+                'title' => $checklist['title'],
+                'items' => array_map(static fn (array $item): array => [
+                    'id' => (string) Str::uuid(),
+                    'title' => $item['title'],
+                    'completed' => false,
+                ], $checklist['items']),
+            ], $template->checklists);
+
+            return $transaction->commit($this->append($board, $column, [
+                'title' => $template->title,
+                'description' => $template->description,
+                'labels' => $template->labels,
+                'checklists' => $checklists,
+            ]));
+        });
+    }
+
+    private function append(Board $board, int $column, array $attributes): Card
+    {
+        $last = $this->cards->lastPosition($column);
+        $position = $this->positionBetween($last, null);
+        if ($position === null) {
+            $this->compact($column);
+            $position = $this->cards->lastPosition($column) + self::POSITION_STEP;
+        }
+        $this->validateDates(new Card, $attributes);
+        $assignees = $attributes['assignee_ids'] ?? null;
+        unset($attributes['assignee_ids']);
+        $card = $this->cards->create($column, $attributes, $position);
+        $this->syncAssignees($card, $board, $assignees);
+        BoardChanged::dispatch($this->boards->recipients($board), $board->id);
+
+        return $card;
+    }
+
+    public function update(int $owner, int $column, int $id, array $attributes, ?array $base = null): Card
+    {
+        return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $column, $id, $attributes, $base) {
+            $board = $this->lockColumn($owner, $column, 'cards.edit');
+            $card = $this->cards->find($owner, $id, $column);
+            if ($base !== null) {
+                $this->assertUnchanged($card, $base);
+            }
+            $this->validateDates($card, $attributes);
+            $this->syncAssignees($card, $board, $attributes['assignee_ids'] ?? null);
+            unset($attributes['assignee_ids']);
+            $this->cards->update($card, $attributes);
             BoardChanged::dispatch($this->boards->recipients($board), $board->id);
 
             return $transaction->commit($card);
@@ -67,7 +112,7 @@ final class CardService
     public function delete(int $owner, int $column, int $id): void
     {
         $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $column, $id) {
-            $board = $this->lockColumn($owner, $column);
+            $board = $this->lockColumn($owner, $column, 'cards.delete');
             $this->cards->delete($this->cards->find($owner, $id, $column));
             BoardChanged::dispatch($this->boards->recipients($board), $board->id);
 
@@ -79,7 +124,7 @@ final class CardService
     {
         return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $id, $column, $previousId, $nextId) {
             $board = $this->cards->boardId($owner, $id);
-            $locked = $this->boards->lock($owner, $board);
+            $locked = $this->boards->lock($owner, $board, 'cards.move');
             $card = $this->cards->find($owner, $id);
             $target = $this->columns->find($owner, $column);
             if ($target->board_id !== $board) {
@@ -105,12 +150,61 @@ final class CardService
         });
     }
 
-    private function lockColumn(int $owner, int $column): Board
+    private function lockColumn(int $owner, int $column, string $permission): Board
     {
-        $board = $this->boards->lock($owner, $this->columns->find($owner, $column)->board_id);
+        $board = $this->boards->lock($owner, $this->columns->find($owner, $column)->board_id, $permission);
         $this->columns->find($owner, $column, $board->id);
 
         return $board;
+    }
+
+    private function validateDates(Card $card, array $attributes): void
+    {
+        $dates = $attributes + [
+            'start_date' => $card->start_date?->toDateString(),
+            'due_date' => $card->due_date?->toDateString(),
+        ];
+
+        if ($dates['start_date'] !== null && $dates['due_date'] !== null && $dates['start_date'] > $dates['due_date']) {
+            throw ValidationException::withMessages(['due_date' => 'The due date must be on or after the start date.']);
+        }
+    }
+
+    private function assertUnchanged(Card $card, array $base): void
+    {
+        $current = array_intersect_key($card->toArray(), $base);
+        if (isset($base['assignee_ids'])) {
+            sort($base['assignee_ids']);
+            sort($current['assignee_ids']);
+        }
+
+        if ($this->sortObjectKeys($base) !== $this->sortObjectKeys($current)) {
+            throw new ConflictHttpException('Some card fields have changed. Refresh the card before saving again.');
+        }
+    }
+
+    private function sortObjectKeys(array $values): array
+    {
+        if (! array_is_list($values)) {
+            ksort($values);
+        }
+
+        return array_map(fn (mixed $value): mixed => is_array($value) ? $this->sortObjectKeys($value) : $value, $values);
+    }
+
+    /** @param list<int>|null $assignees */
+    private function syncAssignees(Card $card, Board $board, ?array $assignees): void
+    {
+        if ($assignees === null) {
+            return;
+        }
+
+        if (array_diff($assignees, $this->boards->recipients($board)) !== []) {
+            throw ValidationException::withMessages(['assignee_ids' => 'Choose members of this board.']);
+        }
+
+        $card->assignees()->sync($assignees);
+        $card->load('assignees:users.id');
     }
 
     private function positionBetween(?float $previous, ?float $next): ?float

@@ -39,6 +39,17 @@ describe('workspace store', () => {
     await expect(store.move(7, snapshot.columns[0], null)).rejects.toThrow('stale')
     expect(store.active).toEqual(snapshot)
   })
+  it('checks each grant of a custom role before moving cards', async () => {
+    const member = { ...summary, role: 'custom-42', permissions: ['cards.comment'] }
+    api.mockResolvedValueOnce([member]).mockResolvedValueOnce({ ...snapshot, ...member })
+    const store = useBoard()
+    await store.select(1)
+    expect(store.role).toBe('custom-42')
+    expect(store.can('cards.comment')).toBe(true)
+    expect(store.can('cards.edit')).toBe(false)
+    await store.move(7, snapshot.columns[0], null)
+    expect(api.mock.calls.some(([url]) => url.endsWith('/move'))).toBe(false)
+  })
   it('clears an open board deleted on another device', async () => {
     const store = useBoard()
     api.mockResolvedValueOnce([summary]).mockResolvedValueOnce(snapshot)

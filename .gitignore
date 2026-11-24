@@ -12,5 +12,6 @@
 /storage/api-docs/
 /storage/*.key
 /test-results/
+/coverage/
 /playwright-report/
 /database/*.sqlite*

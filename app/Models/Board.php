@@ -17,7 +17,7 @@ final class Board extends Model
 
     protected $fillable = ['user_id', 'title'];
 
-    protected $visible = ['id', 'title', 'created_at', 'updated_at', 'columns', 'role'];
+    protected $visible = ['id', 'title', 'created_at', 'updated_at', 'columns', 'role', 'permissions'];
 
     public function scopeAccessibleTo(Builder $boards, int $user): Builder
     {
@@ -33,7 +33,12 @@ final class Board extends Model
 
     public function members(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'board_members')->withPivot('role');
+        return $this->belongsToMany(User::class, 'board_members')->withPivot('role', 'custom_role_id');
+    }
+
+    public function customRoles(): HasMany
+    {
+        return $this->hasMany(CustomBoardRole::class);
     }
 
     public function columns(): HasMany

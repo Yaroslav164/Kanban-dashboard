@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\BoardRole;
 use App\Services\BoardMemberService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Enum;
 
 final class KanbanBoardMemberController extends KanbanController
 {
@@ -23,19 +20,19 @@ final class KanbanBoardMemberController extends KanbanController
 
     public function store(Request $request): JsonResponse
     {
-        $input = $this->input($request, ['email' => 'required|string|email|max:255', 'role' => ['required', $this->assignableRole()]]);
+        $input = $this->input($request, ['email' => 'required|string|email|max:255', 'role' => 'required|string|max:40']);
 
         return $this->data($this->members->add(
-            $request->user()->id, $this->id($request, 'board'), $input['email'], BoardRole::from($input['role']),
+            $request->user()->id, $this->id($request, 'board'), $input['email'], $input['role'],
         ), 201);
     }
 
     public function update(Request $request): JsonResponse
     {
-        $input = $this->input($request, ['role' => ['required', $this->assignableRole()]]);
+        $input = $this->input($request, ['role' => 'required|string|max:40']);
 
         return $this->data($this->members->changeRole(
-            $request->user()->id, $this->id($request, 'board'), $this->id($request, 'member'), BoardRole::from($input['role']),
+            $request->user()->id, $this->id($request, 'board'), $this->id($request, 'member'), $input['role'],
         ));
     }
 
@@ -44,10 +41,5 @@ final class KanbanBoardMemberController extends KanbanController
         $this->members->remove($request->user()->id, $this->id($request, 'board'), $this->id($request, 'member'));
 
         return response()->noContent();
-    }
-
-    private function assignableRole(): Enum
-    {
-        return Rule::enum(BoardRole::class)->except(BoardRole::Owner);
     }
 }

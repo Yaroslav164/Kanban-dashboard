@@ -73,7 +73,7 @@ jobs:
           ./vendor/bin/pest --coverage --min=80
       - name: Test and build Vue
         run: |
-          npm run test
+          npm run test:card-coverage
           npm run build
       - name: Generate and verify OpenAPI
         run: |

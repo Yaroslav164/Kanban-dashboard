@@ -37,7 +37,7 @@ final class BoardService
     public function rename(int $owner, int $id, string $title): Board
     {
         return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $id, $title) {
-            $board = $this->boards->rename($this->boards->lock($owner, $id), $title);
+            $board = $this->boards->rename($this->boards->lock($owner, $id, 'board.rename'), $title);
             BoardChanged::dispatch($this->boards->recipients($board), $id);
 
             return $transaction->commit($board);

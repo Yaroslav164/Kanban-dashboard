@@ -11,14 +11,23 @@ use Illuminate\Validation\ValidationException;
 
 class SessionService
 {
-    public function __construct(private UserRepository $users, private UnitOfWork $work) {}
+    public function __construct(
+        private UserRepository $users,
+        private UnitOfWork $work,
+        private DemoBoardService $demo,
+    ) {}
 
     public function register(array $input): User
     {
         try {
-            $user = $this->work->run(fn ($tx) => $tx->commit($this->users->create([
-                'name' => $input['name'], 'email' => mb_strtolower($input['email']), 'password' => Hash::make($input['password']),
-            ])));
+            $user = $this->work->run(function (UnitOfWork $tx) use ($input) {
+                $user = $this->users->create([
+                    'name' => $input['name'], 'email' => mb_strtolower($input['email']), 'password' => Hash::make($input['password']),
+                ]);
+                $this->demo->createFor($user);
+
+                return $tx->commit($user);
+            });
         } catch (UniqueConstraintViolationException) {
             throw ValidationException::withMessages(['email' => 'This email is already registered.']);
         }

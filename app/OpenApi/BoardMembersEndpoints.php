@@ -14,7 +14,7 @@ use OpenApi\Annotations as OA;
  *     @OA\Property(property="id", type="integer", format="int64", minimum=1),
  *     @OA\Property(property="name", type="string"),
  *     @OA\Property(property="email", type="string", format="email"),
- *     @OA\Property(property="role", type="string", enum={"owner", "editor", "viewer"})
+ *     @OA\Property(property="role", ref="#/components/schemas/BoardRoleKey")
  * )
  *
  * @OA\Get(
@@ -39,7 +39,7 @@ use OpenApi\Annotations as OA;
  *     @OA\Parameter(ref="#/components/parameters/board"),
  *     @OA\Parameter(ref="#/components/parameters/CsrfToken"),
  *
- *     @OA\RequestBody(required=true, @OA\JsonContent(type="object", additionalProperties=false, required={"email", "role"}, @OA\Property(property="email", type="string", format="email", maxLength=255), @OA\Property(property="role", type="string", enum={"editor", "viewer"}))),
+ *     @OA\RequestBody(required=true, @OA\JsonContent(type="object", additionalProperties=false, required={"email", "role"}, @OA\Property(property="email", type="string", format="email", maxLength=255), @OA\Property(property="role", type="string", maxLength=40, pattern="^(editor|viewer|custom-[1-9][0-9]*)$"))),
  *
  *     @OA\Response(response=201, description="Member added", @OA\JsonContent(type="object", additionalProperties=false, required={"data"}, @OA\Property(property="data", ref="#/components/schemas/BoardMember"))),
  *     @OA\Response(response=401, ref="#/components/responses/Error401"),
@@ -59,7 +59,7 @@ use OpenApi\Annotations as OA;
  *     @OA\Parameter(name="member", in="path", required=true, description="Member user ID", @OA\Schema(type="integer", format="int64", minimum=1)),
  *     @OA\Parameter(ref="#/components/parameters/CsrfToken"),
  *
- *     @OA\RequestBody(required=true, @OA\JsonContent(type="object", additionalProperties=false, required={"role"}, @OA\Property(property="role", type="string", enum={"editor", "viewer"}))),
+ *     @OA\RequestBody(required=true, @OA\JsonContent(type="object", additionalProperties=false, required={"role"}, @OA\Property(property="role", type="string", maxLength=40, pattern="^(editor|viewer|custom-[1-9][0-9]*)$"))),
  *
  *     @OA\Response(response=200, description="Success", @OA\JsonContent(type="object", additionalProperties=false, required={"data"}, @OA\Property(property="data", ref="#/components/schemas/BoardMember"))),
  *     @OA\Response(response=401, ref="#/components/responses/Error401"),

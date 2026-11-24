@@ -49,6 +49,8 @@ it('creates an account only from a verified primary email', function () {
     githubCallback($this)->assertRedirect('/boards');
     $this->assertAuthenticated();
     $this->assertDatabaseHas('users', ['email' => 'primary@example.test', 'github_id' => 314, 'password' => null]);
+    $this->getJson('/api/boards')->assertOk()->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.title', 'Демо-доска');
 });
 
 it('refuses unavailable or unverified email information', function (array $emails, int $status, string $error) {

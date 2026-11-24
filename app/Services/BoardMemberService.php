@@ -9,6 +9,7 @@ use App\Models\Board;
 use App\Models\BoardRole;
 use App\Repositories\BoardMemberRepository;
 use App\Repositories\BoardRepository;
+use App\Repositories\CardRepository;
 use App\Repositories\UserRepository;
 use Illuminate\Validation\ValidationException;
 
@@ -18,6 +19,7 @@ final class BoardMemberService
         private BoardRepository $boards,
         private BoardMemberRepository $members,
         private UserRepository $users,
+        private CardRepository $cards,
         private UnitOfWork $transactions,
     ) {}
 
@@ -28,7 +30,7 @@ final class BoardMemberService
     }
 
     /** @return array{id: int, name: string, email: string, role: string} */
-    public function add(int $actor, int $boardId, string $email, BoardRole $role): array
+    public function add(int $actor, int $boardId, string $email, string $role): array
     {
         return $this->transactions->run(function (UnitOfWork $transaction) use ($actor, $boardId, $email, $role) {
             $board = $this->boards->lock($actor, $boardId, BoardRole::Owner);
@@ -48,7 +50,7 @@ final class BoardMemberService
     }
 
     /** @return array{id: int, name: string, email: string, role: string} */
-    public function changeRole(int $actor, int $boardId, int $memberId, BoardRole $role): array
+    public function changeRole(int $actor, int $boardId, int $memberId, string $role): array
     {
         return $this->transactions->run(function (UnitOfWork $transaction) use ($actor, $boardId, $memberId, $role) {
             $board = $this->boards->lock($actor, $boardId, BoardRole::Owner);
@@ -66,6 +68,7 @@ final class BoardMemberService
             $board = $this->boards->lock($actor, $boardId, BoardRole::Owner);
             $this->requireEditableMember($board, $memberId);
             $this->members->remove($board, $this->members->find($board, $memberId));
+            $this->cards->removeAssignee($boardId, $memberId);
             BoardChanged::dispatch([...$this->boards->recipients($board), $memberId], $boardId);
 
             return $transaction->commit();

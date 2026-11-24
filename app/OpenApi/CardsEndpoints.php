@@ -171,6 +171,13 @@ use OpenApi\Annotations as OA;
  *     summary="Update a card",
  *
  *     @OA\Response(
+ *         response="409",
+ *         description="An original field value differs from the current card",
+ *
+ *         @OA\JsonContent(ref="#/components/schemas/Error")
+ *     ),
+ *
+ *     @OA\Response(
  *         response="200",
  *         description="Updated",
  *
