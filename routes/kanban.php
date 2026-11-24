@@ -2,17 +2,27 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\KanbanArchiveController;
 use App\Http\Controllers\KanbanBoardController;
 use App\Http\Controllers\KanbanBoardMemberController;
 use App\Http\Controllers\KanbanBoardRoleController;
 use App\Http\Controllers\KanbanBroadcastController;
 use App\Http\Controllers\KanbanCardActivityController;
 use App\Http\Controllers\KanbanCardController;
+use App\Http\Controllers\KanbanCardHistoryController;
 use App\Http\Controllers\KanbanCardTemplateController;
 use App\Http\Controllers\KanbanColumnController;
+use App\Http\Controllers\KanbanInboxController;
 use Illuminate\Support\Facades\Route;
 
 Route::apiResource('boards', KanbanBoardController::class)->except('update');
+Route::get('me/tasks', [KanbanBoardController::class, 'assignedTasks']);
+Route::get('me/notifications', [KanbanInboxController::class, 'index']);
+Route::post('me/notifications/{notification}/read', [KanbanInboxController::class, 'read']);
+Route::get('cards/{card}/history', [KanbanCardHistoryController::class, 'index']);
+Route::get('boards/{board}/archive', [KanbanArchiveController::class, 'index']);
+Route::post('cards/{card}/archive', [KanbanArchiveController::class, 'archive']);
+Route::post('cards/{card}/restore', [KanbanArchiveController::class, 'restore']);
 Route::apiResource('boards.columns', KanbanColumnController::class)->except('update');
 Route::apiResource('columns.cards', KanbanCardController::class)->except('update');
 Route::patch('boards/{board}', [KanbanBoardController::class, 'update']);

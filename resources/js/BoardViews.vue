@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { request } from './api'
+import { computed, ref } from 'vue'
 import type { BoardMember, Card, Column } from './board'
 import { calendarMonth, dateKey, datesFor, sortTasks } from './board-views'
 
 const props = defineProps<{
   view: 'list' | 'tasks' | 'calendar'
-  boardId: number
   columns: Column[]
+  members: BoardMember[]
+  filtered: boolean
   canComplete: boolean
   busy: boolean
 }>()
@@ -19,28 +19,7 @@ const emit = defineEmits<{
 const rows = computed(() =>
   props.columns.flatMap((column) => column.cards.map((card) => ({ card, column }))),
 )
-const memberNames = ref(new Map<number, string>())
-const memberError = ref(false)
-watch(
-  () => [props.view, props.boardId, props.columns] as const,
-  async ([view, board], _, onCleanup) => {
-    if (view !== 'tasks' || !rows.value.some(({ card }) => card.assignee_ids.length)) return
-    let active = true
-    onCleanup(() => {
-      active = false
-    })
-    try {
-      const members = await request<BoardMember[]>('/api/boards/' + board + '/members')
-      if (active) {
-        memberNames.value = new Map(members.map(({ id, name }) => [id, name]))
-        memberError.value = false
-      }
-    } catch {
-      if (active) memberError.value = true
-    }
-  },
-  { immediate: true },
-)
+const memberNames = computed(() => new Map(props.members.map(({ id, name }) => [id, name])))
 
 function assignees(card: Card) {
   if (!card.assignee_ids.length) return 'Без исполнителя'
@@ -87,7 +66,8 @@ function toggle(card: Card, event: Event) {
 </script>
 
 <template>
-  <section v-if="view === 'calendar'" class="calendar" aria-label="Календарь карточек">
+  <div v-if="filtered && !rows.length" class="empty"><h2>Карточки не найдены</h2></div>
+  <section v-else-if="view === 'calendar'" class="calendar" aria-label="Календарь карточек">
     <div class="calendar-head">
       <h2 aria-live="polite">{{ monthName }}</h2>
       <div class="actions">
@@ -155,7 +135,6 @@ function toggle(card: Card, event: Event) {
     </table>
   </div>
   <div v-else class="tasks">
-    <p v-if="memberError" class="error" role="status">Не удалось загрузить имена исполнителей.</p>
     <section v-for="group in tasks" :key="group.title" class="task-group">
       <h2>
         {{ group.title }} <small>{{ group.rows.length }}</small>

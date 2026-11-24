@@ -71,7 +71,7 @@ test('HTTP-ответы CRUD, ошибок и сессии соответств�
     password,
     password_confirmation: password,
   })
-  await check('GET', '/api/auth/me', 200)
+  const currentUser = await check('GET', '/api/auth/me', 200)
   vars.board = (await check('POST', boards, 201, { title: 'QA' })).id
   await check('GET', members, 200)
   await check('POST', members, 201, { email: memberEmail, role: 'editor' })
@@ -84,7 +84,7 @@ test('HTTP-ответы CRUD, ошибок и сессии соответств�
   vars.column = (await check('POST', cols, 201, { title: 'Todo' })).id
   await check('GET', cols, 200)
   await check('GET', col, 200)
-  await check('PATCH', col, 200, { title: 'Doing' })
+  await check('PATCH', col, 200, { title: 'Doing', wip_limit: 2 })
   vars.card = (await check('POST', cards, 201, { title: 'Review' })).id
   await check('GET', cards, 200)
   await check('GET', card, 200)
@@ -100,6 +100,18 @@ test('HTTP-ответы CRUD, ошибок и сессии соответств�
   await check('POST', cards + '/from-template', 201, { template_id: template.id })
   await check('POST', cards + '/from-template', 422, { template_id: 0 })
   await check('GET', board, 200)
+  await check('PATCH', card, 200, {
+    assignee_ids: [currentUser.id],
+    due_date: new Date().toISOString().slice(0, 10),
+  })
+  await check('GET', '/api/me/tasks', 200)
+  await check('GET', '/api/cards/{card}/history', 200)
+  const inbox = await check('GET', '/api/me/notifications', 200)
+  vars.notification = inbox.find((item: { card_id: number }) => item.card_id === vars.card).id
+  await check('POST', '/api/me/notifications/{notification}/read', 204)
+  await check('POST', '/api/cards/{card}/archive', 204)
+  await check('GET', board + '/archive', 200)
+  await check('POST', '/api/cards/{card}/restore', 204)
   await check('DELETE', card, 204)
   await check('GET', card, 404)
   await check('DELETE', col, 204)

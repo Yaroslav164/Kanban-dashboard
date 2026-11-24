@@ -95,4 +95,35 @@ describe('workspace store', () => {
     await first
     expect(store.active).toBeNull()
   })
+  it('waits for the selected board from a simultaneous refresh before opening a linked card', async () => {
+    let firstList!: (value: unknown) => void
+    let latestSnapshot!: (value: unknown) => void
+    api
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            firstList = resolve
+          }),
+      )
+      .mockResolvedValueOnce([summary])
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            latestSnapshot = resolve
+          }),
+      )
+    const store = useBoard()
+    let opened = false
+    const selection = store.select(1).then(() => {
+      opened = true
+    })
+    const refresh = store.refresh()
+    await vi.waitFor(() => expect(latestSnapshot).toBeTypeOf('function'))
+    firstList([summary])
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(opened).toBe(false)
+    latestSnapshot(snapshot)
+    await Promise.all([selection, refresh])
+    expect(store.active).toEqual(snapshot)
+  })
 })

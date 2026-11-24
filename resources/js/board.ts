@@ -29,6 +29,7 @@ export interface CardChecklist {
 }
 export interface Column extends Summary {
   cards: Card[]
+  wip_limit?: number | null
 }
 export const permissionLabels = {
   'board.rename': 'Переименовывать доску',
@@ -96,7 +97,8 @@ export const useBoard = defineStore('workspace', () => {
   }
   const canEdit = computed(() => can('cards.edit'))
   let version = 0
-  async function refresh() {
+  let latestRefresh: Promise<void> | undefined
+  async function loadBoards() {
     const seq = ++version
     const list = await request<BoardSummary[]>('/api/boards')
     if (seq !== version) return
@@ -119,13 +121,23 @@ export const useBoard = defineStore('workspace', () => {
       }
     }
   }
+  function refresh() {
+    latestRefresh = loadBoards()
+    return latestRefresh
+  }
   async function select(id: number | null) {
     selected.value = id
     if (active.value?.id !== id) active.value = null
-    await refresh()
+    let pending = refresh()
+    await pending
+    while (selected.value === id && latestRefresh && latestRefresh !== pending) {
+      pending = latestRefresh
+      await pending
+    }
   }
   function reset() {
     version++
+    latestRefresh = undefined
     active.value = null
     selected.value = null
     boards.value = []

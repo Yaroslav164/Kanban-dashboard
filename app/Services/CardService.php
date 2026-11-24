@@ -26,6 +26,7 @@ final class CardService
         private CardRepository $cards,
         private CardTemplateRepository $templates,
         private UnitOfWork $transactions,
+        private CardTrackingService $tracking,
     ) {}
 
     public function all(int $owner, int $column): Collection
@@ -45,7 +46,7 @@ final class CardService
         return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $column, $attributes) {
             $board = $this->lockColumn($owner, $column, 'cards.create');
 
-            return $transaction->commit($this->append($board, $column, $attributes));
+            return $transaction->commit($this->append($owner, $board, $column, $attributes));
         });
     }
 
@@ -64,7 +65,7 @@ final class CardService
                 ], $checklist['items']),
             ], $template->checklists);
 
-            return $transaction->commit($this->append($board, $column, [
+            return $transaction->commit($this->append($owner, $board, $column, [
                 'title' => $template->title,
                 'description' => $template->description,
                 'labels' => $template->labels,
@@ -73,19 +74,17 @@ final class CardService
         });
     }
 
-    private function append(Board $board, int $column, array $attributes): Card
+    private function append(int $actor, Board $board, int $column, array $attributes): Card
     {
-        $last = $this->cards->lastPosition($column);
-        $position = $this->positionBetween($last, null);
-        if ($position === null) {
-            $this->compact($column);
-            $position = $this->cards->lastPosition($column) + self::POSITION_STEP;
-        }
+        $position = $this->appendPosition($column);
         $this->validateDates(new Card, $attributes);
         $assignees = $attributes['assignee_ids'] ?? null;
         unset($attributes['assignee_ids']);
         $card = $this->cards->create($column, $attributes, $position);
         $this->syncAssignees($card, $board, $assignees);
+        if ($assignees !== null) {
+            $this->tracking->assignments($actor, $card, []);
+        }
         BoardChanged::dispatch($this->boards->recipients($board), $board->id);
 
         return $card;
@@ -100,9 +99,11 @@ final class CardService
                 $this->assertUnchanged($card, $base);
             }
             $this->validateDates($card, $attributes);
+            $previousAssignees = $card->assignee_ids;
             $this->syncAssignees($card, $board, $attributes['assignee_ids'] ?? null);
             unset($attributes['assignee_ids']);
             $this->cards->update($card, $attributes);
+            $this->tracking->update($owner, $card, $previousAssignees);
             BoardChanged::dispatch($this->boards->recipients($board), $board->id);
 
             return $transaction->commit($card);
@@ -144,6 +145,7 @@ final class CardService
             }
 
             $card = $this->cards->place($card, $column, $position);
+            $this->tracking->moved($owner, $card, $target->title);
             BoardChanged::dispatch($this->boards->recipients($locked), $board);
 
             return $transaction->commit($card);
@@ -218,6 +220,18 @@ final class CardService
 
         if (! is_finite($position) || ($previous !== null && $position <= $previous) || ($next !== null && $position >= $next)) {
             return null;
+        }
+
+        return $position;
+    }
+
+    /** The caller holds the board lock. */
+    public function appendPosition(int $column): float
+    {
+        $position = $this->positionBetween($this->cards->lastPosition($column), null);
+        if ($position === null) {
+            $this->compact($column);
+            $position = $this->cards->lastPosition($column) + self::POSITION_STEP;
         }
 
         return $position;

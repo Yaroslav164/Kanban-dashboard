@@ -17,6 +17,10 @@
         </include>
     </source>
     <php>
+        <server name="APP_ENV" value="testing"/>
+        <server name="DB_CONNECTION" value="pgsql"/>
+        <server name="DB_DATABASE" value="kanban_testing"/>
+        <server name="DB_URL" value=""/>
         <env name="APP_ENV" value="testing" force="true"/>
         <env name="APP_KEY" value="base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
@@ -25,6 +29,7 @@
         <env name="CACHE_STORE" value="array" force="true"/>
         <env name="DB_CONNECTION" value="pgsql" force="true"/>
         <env name="DB_DATABASE" value="kanban_testing" force="true"/>
+        <env name="DB_URL" value="" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync" force="true"/>
         <env name="SESSION_DRIVER" value="array" force="true"/>

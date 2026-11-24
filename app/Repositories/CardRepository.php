@@ -62,9 +62,44 @@ final class CardRepository
     public function removeAssignee(int $board, int $user): void
     {
         DB::table('card_assignees')->where('user_id', $user)
-            ->whereIn('card_id', Card::query()->select('id')->whereHas('column', fn (Builder $columns) => $columns
-                ->where('board_id', $board)))
+            ->whereIn('card_id', Card::withoutGlobalScope(Card::ACTIVE_SCOPE)->select('id')
+                ->whereHas('column', fn (Builder $columns) => $columns->withTrashed()->where('board_id', $board)))
             ->delete();
+    }
+
+    /** @return list<array{id: int, title: string, column_id: int, column_title: string}> */
+    public function archivedOnBoard(int $user, int $board): array
+    {
+        return $this->accessibleIncludingArchived($user)
+            ->whereHas('column', fn (Builder $columns) => $columns->withTrashed()->where('board_id', $board))
+            ->whereNotNull('cards.archived_at')
+            ->orderByDesc('cards.archived_at')
+            ->orderByDesc('cards.id')
+            ->get()
+            ->map(fn (Card $card): array => [
+                'id' => $card->id,
+                'title' => $card->title,
+                'column_id' => $card->column_id,
+                'column_title' => $card->column->title,
+            ])
+            ->all();
+    }
+
+    public function findIncludingArchived(int $user, int $id): Card
+    {
+        return $this->accessibleIncludingArchived($user)->findOrFail($id);
+    }
+
+    public function archive(Card $card): void
+    {
+        $card->forceFill(['archived_at' => now()])->save();
+    }
+
+    public function restore(Card $card, int $column, float $position): void
+    {
+        $card->forceFill([
+            'column_id' => $column, 'position' => $this->encodePosition($position), 'archived_at' => null,
+        ])->save();
     }
 
     public function lastPosition(int $column): ?float
@@ -112,6 +147,14 @@ final class CardRepository
     private function accessible(int $user): Builder
     {
         return Card::query()->whereHas('column.board', fn (Builder $boards) => $boards->accessibleTo($user));
+    }
+
+    private function accessibleIncludingArchived(int $user): Builder
+    {
+        return Card::withoutGlobalScope(Card::ACTIVE_SCOPE)
+            ->withOnly(['column' => fn ($column) => $column->withTrashed()])
+            ->whereHas('column', fn (Builder $columns) => $columns->withTrashed()
+                ->whereHas('board', fn (Builder $boards) => $boards->accessibleTo($user)));
     }
 
     private function encodePosition(float $position): string

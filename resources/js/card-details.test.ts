@@ -82,6 +82,25 @@ afterEach(() => {
 })
 
 describe('блоки карточки', () => {
+  it('вставляет упоминание участника в комментарий', async () => {
+    vi.mocked(request).mockImplementation(async (url) =>
+      url.endsWith('/members')
+        ? [{ id: 2, name: 'Участник', email: 'teammate@example.test', role: 'viewer' }]
+        : { comments: [], attachments: [] },
+    )
+    const { host, setValue } = mount()
+    setValue('Комментарий', 'Посмотри задачу')
+    await vi.waitFor(() => expect(host.querySelector('select')).not.toBeNull())
+    const select = host.querySelector('select')!
+    select.value = 'teammate@example.test'
+    select.dispatchEvent(new Event('change'))
+    await nextTick()
+    expect(host.querySelectorAll('textarea')[1]?.value).toBe(
+      'Посмотри задачу @teammate@example.test ',
+    )
+    expect(select.value).toBe('')
+  })
+
   it('добавляет секции вниз и запоминает перестановку для карточки и пользователя', async () => {
     const first = mount()
     expect(first.sections()).toEqual([])

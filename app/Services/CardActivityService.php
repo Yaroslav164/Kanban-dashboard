@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Events\BoardChanged;
+use App\Models\Board;
 use App\Repositories\BoardRepository;
 use App\Repositories\CardActivityRepository;
 use App\Repositories\CardRepository;
@@ -23,6 +24,7 @@ final class CardActivityService
         private CardRepository $cards,
         private CardActivityRepository $activity,
         private UnitOfWork $transactions,
+        private CardTrackingService $tracking,
     ) {}
 
     public function activity(int $actor, int $card): array
@@ -34,7 +36,12 @@ final class CardActivityService
 
     public function comment(int $actor, int $card, string $body): array
     {
-        return $this->write($actor, $card, 'cards.comment', fn () => $this->activity->addComment($card, $actor, $body));
+        return $this->write($actor, $card, 'cards.comment', function (Board $board) use ($actor, $card, $body) {
+            $comment = $this->activity->addComment($card, $actor, $body);
+            $this->tracking->mentions($actor, $card, $comment['id'], $body, $this->boards->recipients($board));
+
+            return $comment;
+        });
     }
 
     public function deleteComment(int $actor, int $card, int $comment): void
@@ -80,7 +87,7 @@ final class CardActivityService
         return $this->transactions->run(function (UnitOfWork $transaction) use ($actor, $card, $permission, $change) {
             $board = $this->boards->lock($actor, $this->cards->boardId($actor, $card), $permission);
             $this->cards->find($actor, $card);
-            $result = $change();
+            $result = $change($board);
             BoardChanged::dispatch($this->boards->recipients($board), $board->id);
 
             return $transaction->commit($result);

@@ -1,12 +1,24 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { HttpError, request } from './api'
-import { useBoard, type User, type Summary, type Card, type Column } from './board'
+import {
+  useBoard,
+  type User,
+  type Summary,
+  type Card,
+  type Column,
+  type BoardMember,
+} from './board'
+import BoardArchive from './BoardArchive.vue'
+import BoardFilters from './BoardFilters.vue'
 import BoardTeam from './BoardTeam.vue'
 import BoardViews from './BoardViews.vue'
 import CardDetails from './CardDetails.vue'
 import CardTemplatePicker from './CardTemplatePicker.vue'
 import SaveCardTemplate from './SaveCardTemplate.vue'
+import MyTasks from './MyTasks.vue'
+import Inbox from './Inbox.vue'
+import { dateKey, emptyCardFilters, matchesCard, type AssignedTask } from './board-views'
 import type { CardTemplate } from './card-templates'
 import { subscribe } from './realtime'
 
@@ -30,8 +42,80 @@ const views = [
   { id: 'calendar', label: 'Календарь' },
 ] as const
 const view = ref<(typeof views)[number]['id']>('board')
+const myTasks = ref(false)
+const realtimeRevision = ref(0)
+const filters = ref(emptyCardFilters())
+const filtersActive = computed(
+  () =>
+    !!filters.value.query.trim() ||
+    Object.entries(filters.value).some(([key, value]) => key !== 'query' && !!value),
+)
+const filteredColumns = computed(() => {
+  const columns = store.active?.columns ?? []
+  if (!filtersActive.value) return columns
+  const today = dateKey(new Date())
+  return columns.map((column) => ({
+    ...column,
+    cards: column.cards.filter((card) => matchesCard(card, filters.value, today)),
+  }))
+})
+const filterLabels = computed(() => {
+  const labels =
+    store.active?.columns.flatMap(({ cards }) =>
+      cards.flatMap(({ labels }) => labels.map(({ name }) => name)),
+    ) ?? []
+  return [...new Set([...(filters.value.label ? [filters.value.label] : []), ...labels])].sort(
+    (a, b) => a.localeCompare(b, 'ru'),
+  )
+})
+const members = ref<BoardMember[]>([])
+const memberError = ref(false)
+const membersRetry = ref(0)
+watch(
+  () => store.selected,
+  () => {
+    filters.value = emptyCardFilters()
+    members.value = []
+  },
+)
+watch(
+  () => [store.active?.id, realtimeRevision.value, membersRetry.value] as const,
+  async ([boardId], _, onCleanup) => {
+    memberError.value = false
+    if (!boardId) return
+    let current = true
+    onCleanup(() => {
+      current = false
+    })
+    try {
+      const list = await request<BoardMember[]>('/api/boards/' + boardId + '/members')
+      if (current) members.value = list
+    } catch {
+      if (current) memberError.value = true
+    }
+  },
+)
+const filterMembers = computed(() => {
+  const available = new Map(members.value.map((member) => [member.id, member]))
+  const ids =
+    store.active?.columns.flatMap(({ cards }) =>
+      cards.flatMap(({ assignee_ids }) => assignee_ids),
+    ) ?? []
+  for (const id of ids) {
+    if (!available.has(id))
+      available.set(id, { id, name: 'Участник #' + id, email: '', role: 'viewer' })
+  }
+  if (user.value && !available.has(user.value.id))
+    available.set(user.value.id, { ...user.value, role: 'viewer' })
+  if (typeof filters.value.assignee === 'number' && !available.has(filters.value.assignee)) {
+    const id = filters.value.assignee
+    available.set(id, { id, name: 'Участник #' + id, email: '', role: 'viewer' })
+  }
+  return [...available.values()]
+})
 const detail = ref<{ boardId: number; cardId: number } | null>(null),
   detailDialog = ref<HTMLDialogElement>()
+const cardActionError = ref('')
 const detailCard = computed(() => {
   const board = store.active
   const selected = detail.value
@@ -47,6 +131,7 @@ const editor = ref<{
 } | null>(null)
 const title = ref(''),
   description = ref(''),
+  wipLimit = ref<number | ''>(''),
   dialog = ref<HTMLDialogElement>(),
   firstField = ref<HTMLInputElement>()
 const template = ref<CardTemplate | null>(null)
@@ -54,6 +139,7 @@ const visible = computed(() =>
   store.boards.filter((b) => b.title.toLocaleLowerCase().includes(query.value.toLocaleLowerCase())),
 )
 let disconnect: (() => void) | undefined
+let navigationVersion = 0
 const oauthErrors: Record<string, string> = {
   invalid_state: 'Срок запроса истёк. Войдите снова.',
   denied: 'Вход через GitHub отменён.',
@@ -96,12 +182,21 @@ async function run(fn: () => Promise<void>) {
 async function session(u: User) {
   user.value = u
   disconnect?.()
-  disconnect = subscribe(u.id, syncBoard)
-  const id = Number(new URLSearchParams(location.search).get('board'))
+  disconnect = subscribe(u.id, () => {
+    realtimeRevision.value++
+    syncBoard()
+  })
+  const params = new URLSearchParams(location.search)
+  myTasks.value = params.get('view') === 'assigned'
+  const id = Number(params.get('board'))
   await store.select(id > 0 ? id : null)
 }
 function syncBoard() {
   void store.refresh().catch(report)
+}
+function syncAccess() {
+  membersRetry.value++
+  syncBoard()
 }
 onMounted(async () => {
   const oauth = new URLSearchParams(location.search).get('oauth')
@@ -138,16 +233,43 @@ async function logout() {
     await request('/api/auth/logout', 'POST')
     disconnect?.()
     store.reset()
+    myTasks.value = false
     user.value = null
     history.replaceState(null, '', '/login')
   })
 }
 async function select(id: number | null) {
+  const current = ++navigationVersion
+  myTasks.value = false
   history.replaceState(null, '', id ? '/boards?board=' + id : '/boards')
   await store.select(id)
+  return current === navigationVersion
 }
+async function openMyTasks() {
+  navigationVersion++
+  myTasks.value = true
+  history.replaceState(null, '', '/boards?view=assigned')
+  await store.select(null)
+}
+
+async function openLinkedCard(boardId: number, cardId: number) {
+  if (!(await select(boardId))) return
+  const card = store.active?.columns.flatMap(({ cards }) => cards).find(({ id }) => id === cardId)
+  if (!card) throw new Error('Карточка больше недоступна.')
+  await openCard(card)
+}
+
+function openAssignedTask(task: AssignedTask) {
+  void openLinkedCard(task.board_id, task.id).catch(report)
+}
+
+function openInboxCard({ boardId, cardId }: { boardId: number; cardId: number }) {
+  void openLinkedCard(boardId, cardId).catch(report)
+}
+
 async function openCard(card: Card) {
   if (!store.active) return
+  cardActionError.value = ''
   detail.value = { boardId: store.active.id, cardId: card.id }
   await nextTick()
   if (detailCard.value && !detailDialog.value?.open) detailDialog.value?.showModal()
@@ -155,6 +277,24 @@ async function openCard(card: Card) {
 function closeCard() {
   detailDialog.value?.close()
   detail.value = null
+}
+async function archiveCard(card: Card) {
+  if (busy.value || !store.can('cards.delete')) return
+  busy.value = true
+  cardActionError.value = ''
+  try {
+    await request('/api/cards/' + card.id + '/archive', 'POST')
+    closeCard()
+    await store.refresh()
+  } catch (error) {
+    if (!detail.value) report(error)
+    else
+      cardActionError.value =
+        error instanceof Error ? error.message : 'Не удалось архивировать карточку.'
+    if (error instanceof HttpError && (error.status === 403 || error.status === 404)) syncBoard()
+  } finally {
+    busy.value = false
+  }
 }
 watch(detailCard, (card) => {
   if (!card && detail.value) closeCard()
@@ -180,6 +320,7 @@ async function edit(
   template.value = null
   title.value = item?.title ?? ''
   description.value = (item as Card)?.description ?? ''
+  wipLimit.value = (item as Column)?.wip_limit ?? ''
   await nextTick()
   dialog.value?.showModal()
   firstField.value?.focus()
@@ -229,6 +370,9 @@ async function save() {
         : {
             title: title.value.trim(),
             ...(entry.kind === 'карточка' ? { description: description.value.trim() || null } : {}),
+            ...(entry.kind === 'колонка'
+              ? { wip_limit: wipLimit.value === '' ? null : Number(wipLimit.value) }
+              : {}),
           },
     )
     close()
@@ -313,6 +457,14 @@ const nouns = {
     <aside>
       <div class="wordmark"><i /> Полоса</div>
       <button class="nav" @click="select(null).catch(report)">▦ &nbsp; Мои доски</button>
+      <button
+        class="nav"
+        :aria-current="myTasks ? 'page' : undefined"
+        @click="openMyTasks().catch(report)"
+      >
+        Мои задачи
+      </button>
+      <Inbox :key="user.id" :revision="realtimeRevision" @open="openInboxCard" />
       <div class="side-label">
         ДОСКИ <button title="Создать доску" @click="edit('доска', '/api/boards')">+</button>
       </div>
@@ -336,12 +488,14 @@ const nouns = {
     <main class="desk">
       <header>
         <button class="text" @click="select(null).catch(report)">Мои доски</button
-        ><span v-if="store.active"> / &nbsp; {{ store.active.title }}</span>
+        ><span v-if="myTasks"> / &nbsp; Мои задачи</span>
+        <span v-else-if="store.active"> / &nbsp; {{ store.active.title }}</span>
       </header>
       <div v-if="message && !editor" class="error" role="alert">
         {{ message }} <button aria-label="Закрыть" @click="message = ''">×</button>
       </div>
-      <template v-if="!store.active"
+      <MyTasks v-if="myTasks" :revision="realtimeRevision" @open="openAssignedTask" />
+      <template v-else-if="!store.active"
         ><div class="page-head">
           <div>
             <p class="kicker">РАБОЧЕЕ ПРОСТРАНСТВО</p>
@@ -393,7 +547,16 @@ const nouns = {
               :key="store.active.id"
               :board="store.active"
               :role="store.role"
-              @access-changed="syncBoard"
+              @access-changed="syncAccess"
+            />
+            <BoardArchive
+              v-if="store.role"
+              :key="store.active.id"
+              :board-id="store.active.id"
+              :columns="store.active.columns"
+              :can-restore="store.can('cards.delete')"
+              :revision="realtimeRevision"
+              @changed="syncBoard"
             />
             <details v-if="store.can('board.rename') || store.role === 'owner'">
               <summary aria-label="Действия с доской">•••</summary>
@@ -430,17 +593,35 @@ const nouns = {
             {{ option.label }}
           </button>
         </div>
+        <BoardFilters
+          v-model="filters"
+          :user-id="user.id"
+          :members="filterMembers"
+          :labels="filterLabels"
+          :active="filtersActive"
+        />
+        <p v-if="memberError" class="error" role="status">
+          Не удалось загрузить имена исполнителей.
+          <button class="secondary" @click="membersRetry++">Повторить</button>
+        </p>
         <BoardViews
           v-if="view !== 'board'"
           :key="store.active.id"
           :view="view"
-          :board-id="store.active.id"
-          :columns="store.active.columns"
+          :columns="filteredColumns"
+          :members="filterMembers"
+          :filtered="filtersActive"
           :can-complete="store.can('cards.edit')"
           :busy="busy"
           @open="openCard"
           @complete="completeCard"
         />
+        <div
+          v-else-if="filtersActive && !filteredColumns.some(({ cards }) => cards.length)"
+          class="empty"
+        >
+          <h2>Карточки не найдены</h2>
+        </div>
         <div v-else class="lanes">
           <section
             v-for="(col, i) in store.active.columns"
@@ -453,7 +634,15 @@ const nouns = {
             <div class="lane-head">
               <span class="dot" />
               <h2>{{ col.title }}</h2>
-              <small>{{ col.cards.length }}</small>
+              <small
+                v-if="col.wip_limit"
+                class="wip-count"
+                :class="{ 'wip-exceeded': col.cards.length > col.wip_limit }"
+              >
+                <span>{{ col.cards.length }} из {{ col.wip_limit }}</span>
+                <span v-if="col.cards.length > col.wip_limit"> · Лимит превышен</span>
+              </small>
+              <small v-else>{{ col.cards.length }}</small>
               <details v-if="store.can('columns.edit') || store.can('columns.delete')">
                 <summary :aria-label="'Действия с колонкой ' + col.title">•••</summary>
                 <div class="menu">
@@ -461,7 +650,7 @@ const nouns = {
                     v-if="store.can('columns.edit')"
                     @click="edit('колонка', '/api/boards/' + store.active.id + '/columns', col)"
                   >
-                    Переименовать</button
+                    Настройки колонки</button
                   ><button
                     v-if="store.can('columns.delete')"
                     @click="
@@ -474,7 +663,7 @@ const nouns = {
               </details>
             </div>
             <article
-              v-for="card in col.cards"
+              v-for="card in filteredColumns[i]?.cards"
               :key="card.id"
               :draggable="store.can('cards.move')"
               :class="{ target: hover === String(card.id) }"
@@ -499,6 +688,13 @@ const nouns = {
               <details v-if="store.can('cards.delete') || store.can('cards.move')">
                 <summary :aria-label="'Действия с карточкой ' + card.title">•••</summary>
                 <div class="menu">
+                  <button
+                    v-if="store.can('cards.delete')"
+                    :disabled="busy"
+                    @click="archiveCard(card)"
+                  >
+                    Архивировать карточку
+                  </button>
                   <button
                     v-if="store.can('cards.delete')"
                     @click="edit('карточка', '/api/columns/' + col.id + '/cards', card, true)"
@@ -544,11 +740,33 @@ const nouns = {
       aria-labelledby="card-dialog-title"
       @close="detail = null"
     >
-      <div v-if="detail && detailCard" class="card-dialog-head">
-        <h2 id="card-dialog-title">{{ detailCard.title }}</h2>
-        <button type="button" class="secondary" aria-label="Закрыть карточку" @click="closeCard">
-          ×
-        </button>
+      <div v-if="detail && detailCard">
+        <div class="card-dialog-head">
+          <h2 id="card-dialog-title">{{ detailCard.title }}</h2>
+          <div class="card-dialog-actions">
+            <button
+              v-if="store.can('cards.delete')"
+              type="button"
+              class="secondary"
+              aria-label="Архивировать карточку"
+              :disabled="busy"
+              @click="archiveCard(detailCard)"
+            >
+              В архив
+            </button>
+            <button
+              type="button"
+              class="secondary"
+              aria-label="Закрыть карточку"
+              @click="closeCard"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        <p v-if="cardActionError" class="error card-action-error" role="alert">
+          {{ cardActionError }}
+        </p>
       </div>
       <CardDetails
         v-if="detail && detailCard"
@@ -602,6 +820,17 @@ const nouns = {
             <label v-if="editor.kind === 'карточка'">
               Описание<textarea v-model="description" maxlength="10000" rows="4" />
             </label>
+            <label v-if="editor.kind === 'колонка'">
+              Лимит задач в работе (WIP)
+              <input
+                v-model.number="wipLimit"
+                type="number"
+                min="1"
+                max="2147483647"
+                step="1"
+                placeholder="Без лимита"
+              />
+            </label>
           </template>
         </template>
         <p v-else>
@@ -621,3 +850,48 @@ const nouns = {
     </dialog>
   </div>
 </template>
+
+<style scoped>
+.card-dialog-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-dialog-actions .secondary {
+  white-space: nowrap;
+}
+
+.card-action-error {
+  margin: 0 12px 8px;
+}
+
+.lane-head h2 {
+  min-width: 0;
+}
+
+.wip-count.wip-exceeded {
+  color: #942d16;
+  background: #ffede7;
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+
+.nav[aria-current='page'] {
+  background: #31574b;
+}
+
+.nav {
+  min-height: 44px;
+}
+
+@media (max-width: 750px) {
+  .workspace > aside {
+    flex-wrap: wrap;
+  }
+
+  .workspace > aside > .inbox {
+    max-width: 100%;
+  }
+}
+</style>

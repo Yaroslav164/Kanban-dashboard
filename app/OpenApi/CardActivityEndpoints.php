@@ -31,6 +31,7 @@ use OpenApi\Annotations as OA;
  *     operationId="createCardComment",
  *     tags={"Cards"},
  *     summary="Add a comment",
+ *     description="Use @ followed by a board member's email address to notify that member.",
  *
  *     @OA\Parameter(ref="#/components/parameters/card"),
  *     @OA\Parameter(ref="#/components/parameters/CsrfToken"),

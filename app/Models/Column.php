@@ -13,11 +13,13 @@ final class Column extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['board_id', 'title', 'position'];
+    protected $fillable = ['board_id', 'title', 'position', 'wip_limit'];
 
-    protected $visible = ['id', 'board_id', 'title', 'position', 'created_at', 'updated_at', 'cards'];
+    protected $visible = ['id', 'board_id', 'title', 'position', 'wip_limit', 'created_at', 'updated_at', 'cards'];
 
-    protected $casts = ['board_id' => 'integer', 'position' => 'integer'];
+    protected $attributes = ['wip_limit' => null];
+
+    protected $casts = ['board_id' => 'integer', 'position' => 'integer', 'wip_limit' => 'integer'];
 
     public function board(): BelongsTo
     {

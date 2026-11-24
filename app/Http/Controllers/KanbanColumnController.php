@@ -11,6 +11,8 @@ use Illuminate\Http\Response;
 
 final class KanbanColumnController extends KanbanController
 {
+    private const WIP_RULE = 'nullable|integer:strict|min:1|max:2147483647';
+
     public function __construct(private ColumnService $columns) {}
 
     public function index(Request $request): JsonResponse
@@ -20,9 +22,14 @@ final class KanbanColumnController extends KanbanController
 
     public function store(Request $request): JsonResponse
     {
-        $input = $this->input($request, ['title' => 'required|string|max:255']);
+        $input = $this->input($request, ['title' => 'required|string|max:255', 'wip_limit' => self::WIP_RULE]);
 
-        return $this->data($this->columns->create($request->user()->id, $this->id($request, 'board'), $input['title']), 201);
+        return $this->data($this->columns->create(
+            $request->user()->id,
+            $this->id($request, 'board'),
+            $input['title'],
+            $input['wip_limit'] ?? null,
+        ), 201);
     }
 
     public function show(Request $request): JsonResponse
@@ -32,10 +39,10 @@ final class KanbanColumnController extends KanbanController
 
     public function update(Request $request): JsonResponse
     {
-        $input = $this->input($request, ['title' => 'required|string|max:255']);
+        $input = $this->input($request, ['title' => 'sometimes|required|string|max:255', 'wip_limit' => self::WIP_RULE], true);
 
-        return $this->data($this->columns->rename(
-            $request->user()->id, $this->id($request, 'board'), $this->id($request, 'column'), $input['title'],
+        return $this->data($this->columns->update(
+            $request->user()->id, $this->id($request, 'board'), $this->id($request, 'column'), $input,
         ));
     }
 

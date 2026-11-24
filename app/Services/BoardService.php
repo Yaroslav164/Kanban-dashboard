@@ -24,6 +24,11 @@ final class BoardService
         return $this->boards->find($owner, $id);
     }
 
+    public function assignedTasks(int $user): \Illuminate\Support\Collection
+    {
+        return $this->boards->assignedTasks($user);
+    }
+
     public function create(int $owner, string $title): Board
     {
         return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $title) {

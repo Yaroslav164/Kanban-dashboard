@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 final class Card extends Model
 {
     use SoftDeletes;
+
+    public const ACTIVE_SCOPE = 'unarchived';
 
     protected $fillable = [
         'column_id', 'title', 'description', 'position', 'start_date', 'due_date', 'completed', 'labels', 'checklists',
@@ -39,11 +42,19 @@ final class Card extends Model
         'completed' => 'boolean',
         'labels' => 'array',
         'checklists' => 'array',
+        'archived_at' => 'datetime',
     ];
 
     protected $with = ['assignees:users.id'];
 
     protected $appends = ['assignee_ids'];
+
+    protected static function booted(): void
+    {
+        self::addGlobalScope(self::ACTIVE_SCOPE, function (Builder $cards): void {
+            $cards->whereNull('cards.archived_at');
+        });
+    }
 
     public function column(): BelongsTo
     {

@@ -18,6 +18,23 @@ final class BoardRepository
         return $this->withRole($user)->orderBy('boards.id')->get();
     }
 
+    public function assignedTasks(int $user): \Illuminate\Support\Collection
+    {
+        return Card::query()
+            ->join('card_assignees', 'card_assignees.card_id', '=', 'cards.id')
+            ->join('columns', 'columns.id', '=', 'cards.column_id')
+            ->join('boards', 'boards.id', '=', 'columns.board_id')
+            ->where('card_assignees.user_id', $user)
+            ->where('cards.completed', false)
+            ->whereNull('columns.deleted_at')
+            ->whereIn('boards.id', Board::query()->accessibleTo($user)->select('boards.id'))
+            ->orderBy('cards.due_date')->orderBy('cards.id')
+            ->toBase()->get([
+                'cards.id', 'cards.title', 'boards.id as board_id', 'boards.title as board_title',
+                'columns.id as column_id', 'columns.title as column_title', 'cards.due_date',
+            ]);
+    }
+
     public function find(int $user, int $id): Board
     {
         return $this->withRole($user)->with('columns.cards')->findOrFail($id);
@@ -60,7 +77,9 @@ final class BoardRepository
     public function delete(Board $board): void
     {
         $columns = $board->columns()->getQuery()->reorder();
-        Card::query()->whereIn('column_id', (clone $columns)->select('id'))->delete();
+        Card::withoutGlobalScope(Card::ACTIVE_SCOPE)
+            ->whereIn('column_id', (clone $columns)->withTrashed()->select('id'))
+            ->delete();
         $columns->delete();
         $board->delete();
     }

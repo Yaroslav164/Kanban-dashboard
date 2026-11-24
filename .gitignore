@@ -4,6 +4,8 @@
 /.phpunit.cache
 /.phpunit.result.cache
 /.kanban-cache/
+/.code-index/
+/scripts/__pycache__/
 /node_modules/
 /vendor/
 /public/build/

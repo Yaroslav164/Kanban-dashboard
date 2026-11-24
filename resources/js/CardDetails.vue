@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { HttpError, request } from './api'
 import type { BoardMember, Card } from './board'
+import CardHistory from './CardHistory.vue'
 
 const props = defineProps<{
   card: Card
@@ -50,6 +51,13 @@ const draft = ref(fields(props.card))
 const activity = ref<Activity>({ comments: [], attachments: [] })
 const people = ref<BoardMember[]>([])
 const comment = ref('')
+const mentionable = computed(() => people.value.filter((person) => person.id !== props.userId))
+function insertMention(event: Event) {
+  const select = event.currentTarget as HTMLSelectElement
+  const body = [comment.value.trimEnd(), `@${select.value} `].filter(Boolean).join(' ')
+  if (select.value && body.length <= 10000) comment.value = body
+  select.value = ''
+}
 const labelName = ref('')
 const labelColor = ref('#5268c1')
 const checklistTitle = ref('')
@@ -544,11 +552,21 @@ async function upload() {
       </ul>
       <form v-if="canComment" @submit.prevent="postComment">
         <label>Комментарий<textarea v-model="comment" maxlength="10000" rows="3" required /></label>
+        <label v-if="mentionable.length">
+          Упомянуть участника
+          <select :disabled="busy" @change="insertMention">
+            <option value="">Выберите участника</option>
+            <option v-for="person in mentionable" :key="person.id" :value="person.email">
+              {{ person.name }} ({{ person.email }})
+            </option>
+          </select>
+        </label>
         <p v-if="commentError && commentErrorId === null" class="error" role="alert">
           {{ commentError }}
         </p>
         <button class="primary" :disabled="busy || !comment.trim()">Отправить</button>
       </form>
+      <CardHistory :card="card" />
     </section>
   </div>
 </template>

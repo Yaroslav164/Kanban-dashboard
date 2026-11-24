@@ -30,22 +30,23 @@ final class ColumnService
         return $this->columns->find($owner, $id, $board);
     }
 
-    public function create(int $owner, int $board, string $title): Column
+    public function create(int $owner, int $board, string $title, ?int $wipLimit = null): Column
     {
-        return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $board, $title) {
+        return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $board, $title, $wipLimit) {
             $locked = $this->boards->lock($owner, $board, 'columns.create');
-            $column = $this->columns->create($board, $title);
+            $column = $this->columns->create($board, $title, $wipLimit);
             BoardChanged::dispatch($this->boards->recipients($locked), $board);
 
             return $transaction->commit($column);
         });
     }
 
-    public function rename(int $owner, int $board, int $id, string $title): Column
+    /** @param array{title?: string, wip_limit?: int|null} $attributes */
+    public function update(int $owner, int $board, int $id, array $attributes): Column
     {
-        return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $board, $id, $title) {
+        return $this->transactions->run(function (UnitOfWork $transaction) use ($owner, $board, $id, $attributes) {
             $locked = $this->boards->lock($owner, $board, 'columns.edit');
-            $column = $this->columns->rename($this->columns->find($owner, $id, $board), $title);
+            $column = $this->columns->update($this->columns->find($owner, $id, $board), $attributes);
             BoardChanged::dispatch($this->boards->recipients($locked), $board);
 
             return $transaction->commit($column);

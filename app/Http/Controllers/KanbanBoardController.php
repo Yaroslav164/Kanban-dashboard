@@ -25,6 +25,11 @@ final class KanbanBoardController extends KanbanController
         return $this->data($this->boards->create($request->user()->id, $input['title']), 201);
     }
 
+    public function assignedTasks(Request $request): JsonResponse
+    {
+        return $this->data($this->boards->assignedTasks($request->user()->id));
+    }
+
     public function show(Request $request): JsonResponse
     {
         return $this->data($this->boards->find($request->user()->id, $this->id($request, 'board')));

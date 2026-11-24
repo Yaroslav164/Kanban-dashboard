@@ -25,16 +25,19 @@ final class ColumnRepository
         return $columns->findOrFail($id);
     }
 
-    public function create(int $board, string $title): Column
+    public function create(int $board, string $title, ?int $wipLimit = null): Column
     {
         $last = Column::query()->where('board_id', $board)->max('position');
 
-        return Column::query()->create(['board_id' => $board, 'title' => $title, 'position' => ($last ?? 0) + 1]);
+        return Column::query()->create([
+            'board_id' => $board, 'title' => $title, 'position' => ($last ?? 0) + 1, 'wip_limit' => $wipLimit,
+        ]);
     }
 
-    public function rename(Column $column, string $title): Column
+    /** @param array{title?: string, wip_limit?: int|null} $attributes */
+    public function update(Column $column, array $attributes): Column
     {
-        $column->update(['title' => $title]);
+        $column->update($attributes);
 
         return $column;
     }

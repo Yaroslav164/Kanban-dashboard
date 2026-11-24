@@ -23,6 +23,95 @@ async function register(page: Page, name: string) {
   return email
 }
 
+test('упоминание отправляет уведомление, а изменения видны в истории карточки', async ({
+  page: owner,
+  browser,
+  baseURL,
+}) => {
+  const member = await browser.newPage({ baseURL })
+  try {
+    const email = await register(member, 'Участник')
+    await register(owner, 'Автор изменений')
+    await createItem(owner, '＋ Создать доску', 'Проверка уведомлений')
+    await owner.getByRole('button', { name: 'Команда', exact: true }).click()
+    const team = owner.getByRole('dialog', { name: 'Команда доски' })
+    await team.getByLabel('Email участника').fill(email)
+    await team.getByRole('button', { name: 'Добавить участника' }).click()
+    await expect(team.getByLabel('Роль для ' + email, { exact: true })).toBeVisible()
+    await owner.keyboard.press('Escape')
+    await createItem(owner, '＋ Колонка', 'Новые')
+    await createItem(owner, '＋ Добавить карточку', 'Проверить отчёт')
+    await owner.getByRole('button', { name: 'Проверить отчёт', exact: true }).click()
+    const card = owner.getByRole('dialog', { name: 'Проверить отчёт' })
+    await card.getByLabel('Комментарий', { exact: true }).fill('Посмотрите отчёт')
+    await card.getByLabel('Упомянуть участника').selectOption(email)
+    await card.getByRole('button', { name: 'Отправить', exact: true }).click()
+    await expect(card.getByText('Посмотрите отчёт @' + email)).toBeVisible()
+
+    await member.getByText('Уведомления', { exact: false }).first().click()
+    const mention = member.getByRole('button', { name: /Проверить отчёт.*упомянули/ })
+    await expect(mention).toBeVisible()
+    await mention.click()
+    await expect(member.getByRole('dialog', { name: 'Проверить отчёт' })).toBeVisible()
+
+    await card.getByRole('button', { name: 'Даты', exact: true }).click()
+    await card.getByLabel('Срок', { exact: true }).fill('2030-01-06')
+    await card.getByRole('button', { name: 'Сохранить карточку', exact: true }).click()
+    await card.getByText('История изменений', { exact: true }).click()
+    await expect(card.getByText('Срок · 2030-01-06')).toBeVisible()
+  } finally {
+    await member.close()
+  }
+})
+
+test('лимит колонки предупреждает о превышении, архив освобождает место и позволяет восстановить карточку', async ({
+  page,
+}) => {
+  await register(page, 'Пользователь архива')
+  await createItem(page, '＋ Создать доску', 'Проверка лимита')
+  await createItem(page, '＋ Колонка', 'В работе')
+  await page.getByLabel('Действия с колонкой В работе').click()
+  await page.getByRole('button', { name: 'Настройки колонки' }).click()
+  const settings = page.getByRole('dialog')
+  await settings.getByLabel('Лимит задач в работе (WIP)').fill('1')
+  await settings.getByRole('button', { name: 'Сохранить', exact: true }).click()
+  await expect(settings).toBeHidden()
+  await createItem(page, '＋ Добавить карточку', 'Первая задача')
+  await createItem(page, '＋ Добавить карточку', 'Вторая задача')
+  await expect(page.locator('.wip-count')).toContainText('2 из 1')
+  await expect(page.getByText('Лимит превышен')).toBeVisible()
+  await page.getByLabel('Действия с карточкой Вторая задача').click()
+  await page.getByRole('button', { name: 'Архивировать карточку', exact: true }).click()
+  await expect(page.locator('.wip-count')).toHaveText('1 из 1')
+  await page.getByRole('button', { name: 'Архив', exact: true }).click()
+  const archive = page.getByRole('dialog', { name: 'Архив карточек' })
+  await archive.getByRole('button', { name: 'Восстановить Вторая задача' }).click()
+  await expect(archive.getByText('Карточка восстановлена.', { exact: true })).toBeVisible()
+  await archive.getByRole('button', { name: 'Закрыть архив' }).click()
+  await expect(page.getByRole('button', { name: 'Вторая задача', exact: true })).toBeVisible()
+  await expect(page.locator('.wip-count')).toContainText('2 из 1')
+})
+
+test('находит карточки по описанию в разных видах и открывает назначенную из моих задач', async ({
+  page,
+}) => {
+  await register(page, 'Исполнитель')
+  await page.getByRole('button', { name: 'Демо-доска', exact: true }).first().click()
+  const example = 'Подготовить демо проекта'
+  await page.getByLabel('Поиск карточек').fill('посмотреть метки')
+  await expect(page.getByRole('button', { name: example, exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Посмотреть режимы доски', exact: true }),
+  ).toHaveCount(0)
+  await page.getByRole('button', { name: 'Список', exact: true }).click()
+  await expect(page.getByLabel('Поиск карточек')).toHaveValue('посмотреть метки')
+  await expect(page.getByRole('button', { name: example, exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Мои задачи', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Мои задачи' })).toBeVisible()
+  await page.getByRole('button', { name: example, exact: true }).click()
+  await expect(page.getByRole('dialog', { name: example })).toBeVisible()
+})
+
 test('сохраняет карточку как шаблон и создаёт по нему новую', async ({ page }) => {
   await register(page, 'Автор шаблона')
   await page.getByRole('button', { name: 'Демо-доска', exact: true }).first().click()

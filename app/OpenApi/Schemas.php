@@ -157,7 +157,8 @@ use OpenApi\Annotations as OA;
  *         format="int32",
  *         minimum=1
  *     ),
- *     required={"id", "title", "created_at", "updated_at", "board_id", "position"}
+ *     @OA\Property(property="wip_limit", type="integer", format="int32", minimum=1, maximum=2147483647, nullable=true),
+ *     required={"id", "title", "created_at", "updated_at", "board_id", "position", "wip_limit"}
  * )
  *
  * @OA\Schema(
@@ -303,7 +304,9 @@ use OpenApi\Annotations as OA;
  *         ),
  *         description="Active cards in position, id order."
  *     ),
- *     required={"id", "title", "created_at", "updated_at", "board_id", "position", "cards"}
+ *
+ *     @OA\Property(property="wip_limit", type="integer", format="int32", minimum=1, maximum=2147483647, nullable=true),
+ *     required={"id", "title", "created_at", "updated_at", "board_id", "position", "cards", "wip_limit"}
  * )
  *
  * @OA\Schema(
@@ -367,6 +370,7 @@ use OpenApi\Annotations as OA;
  *     type="object",
  *     additionalProperties=false,
  *
+ *     @OA\Property(property="wip_limit", type="integer", format="int32", minimum=1, maximum=2147483647, nullable=true),
  *     @OA\Property(
  *         property="title",
  *         type="string",
@@ -381,6 +385,7 @@ use OpenApi\Annotations as OA;
  *     type="object",
  *     additionalProperties=false,
  *
+ *     @OA\Property(property="wip_limit", type="integer", format="int32", minimum=1, maximum=2147483647, nullable=true),
  *     @OA\Property(
  *         property="title",
  *         type="string",

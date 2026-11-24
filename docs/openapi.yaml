@@ -1,725 +1,635 @@
 openapi: 3.0.3
 info:
-  title: Kanban MVP
+  title: 'Kanban MVP'
+  description: 'First-party SPA on the same origin. Use Accept: application/json, keep cookies, and URL-decode XSRF-TOKEN into X-XSRF-TOKEN for mutations. Timestamps are UTC RFC 3339 strings. Collection endpoints return all active records.'
   version: 0.1.0
-  description: 'First-party SPA on the same origin. Use Accept: application/json, keep cookies, and URL-decode XSRF-TOKEN
-    into X-XSRF-TOKEN for mutations. Timestamps are UTC RFC 3339 strings. Collection endpoints return all active
-    records.'
 servers:
-- url: /
-security:
-- SanctumSession: []
+  -
+    url: /
 paths:
-  /sanctum/csrf-cookie:
+  '/api/boards/{board}':
     get:
-      operationId: csrfCookie
       tags:
-      - Auth
-      summary: Initialize CSRF cookies
-      responses:
-        '204':
-          description: Cookies initialized
-          headers:
-            Set-Cookie:
-              description: Initializes XSRF-TOKEN and the browser session. Preserve all Set-Cookie headers.
-              schema:
-                type: string
-      security: []
-  /api/auth/register:
-    post:
-      operationId: authRegister
-      tags:
-      - Auth
-      summary: Register and start a session
-      responses:
-        '201':
-          description: Registered
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  data:
-                    $ref: '#/components/schemas/User'
-                required:
-                - data
-        '419':
-          $ref: '#/components/responses/Error419'
-        '422':
-          $ref: '#/components/responses/Error422'
-      security: []
-      parameters:
-      - $ref: '#/components/parameters/CsrfToken'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Registration'
-  /api/auth/login:
-    post:
-      operationId: authLogin
-      tags:
-      - Auth
-      summary: Start a session
-      responses:
-        '200':
-          description: Current user
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  data:
-                    $ref: '#/components/schemas/User'
-                required:
-                - data
-        '419':
-          $ref: '#/components/responses/Error419'
-        '422':
-          $ref: '#/components/responses/Error422'
-      security: []
-      parameters:
-      - $ref: '#/components/parameters/CsrfToken'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Login'
-  /api/auth/logout:
-    post:
-      operationId: authLogout
-      tags:
-      - Auth
-      summary: End the current session
-      responses:
-        '204':
-          description: Logged out
-        '401':
-          $ref: '#/components/responses/Error401'
-        '419':
-          $ref: '#/components/responses/Error419'
-      parameters:
-      - $ref: '#/components/parameters/CsrfToken'
-  /api/auth/me:
-    get:
-      operationId: authMe
-      tags:
-      - Auth
-      summary: Read current user
-      responses:
-        '200':
-          description: Current user
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  data:
-                    $ref: '#/components/schemas/User'
-                required:
-                - data
-        '401':
-          $ref: '#/components/responses/Error401'
-  /api/boards:
-    get:
-      operationId: listBoards
-      tags:
-      - Boards
-      summary: List boards
-      responses:
-        '200':
-          description: Collection ordered by id ascending
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Board'
-                required:
-                - data
-        '401':
-          $ref: '#/components/responses/Error401'
-    post:
-      operationId: createBoard
-      tags:
-      - Boards
-      summary: Create a board
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Board'
-                required:
-                - data
-        '401':
-          $ref: '#/components/responses/Error401'
-        '419':
-          $ref: '#/components/responses/Error419'
-        '422':
-          $ref: '#/components/responses/Error422'
-      parameters:
-      - $ref: '#/components/parameters/CsrfToken'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateBoard'
-  /api/boards/{board}:
-    parameters:
-    - $ref: '#/components/parameters/board'
-    get:
+        - Boards
+      summary: 'Read a board'
       operationId: getBoard
-      tags:
-      - Boards
-      summary: Read a board
       responses:
         '200':
-          description: Requested resource
+          description: 'Requested resource'
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: false
+                required:
+                  - data
                 properties:
                   data:
                     $ref: '#/components/schemas/BoardDetail'
-                required:
-                - data
+                type: object
+                additionalProperties: false
         '401':
           $ref: '#/components/responses/Error401'
         '404':
           $ref: '#/components/responses/Error404'
-    patch:
-      operationId: updateBoard
+    delete:
       tags:
-      - Boards
-      summary: Update a board
+        - Boards
+      summary: 'Soft-delete a board'
+      operationId: deleteBoard
+      parameters:
+        -
+          $ref: '#/components/parameters/CsrfToken'
       responses:
-        '200':
-          description: Updated
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Board'
-                required:
-                - data
+        '204':
+          description: 'Resource and any descendants soft-deleted'
         '401':
           $ref: '#/components/responses/Error401'
         '419':
           $ref: '#/components/responses/Error419'
-        '404':
-          $ref: '#/components/responses/Error404'
-        '422':
-          $ref: '#/components/responses/Error422'
         '403':
           $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+    patch:
+      tags:
+        - Boards
+      summary: 'Update a board'
+      operationId: updateBoard
       parameters:
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/PatchBoard'
-    delete:
-      operationId: deleteBoard
-      tags:
-      - Boards
-      summary: Soft-delete a board
-      responses:
-        '204':
-          description: Resource and any descendants soft-deleted
-        '401':
-          $ref: '#/components/responses/Error401'
-        '419':
-          $ref: '#/components/responses/Error419'
-        '404':
-          $ref: '#/components/responses/Error404'
-        '403':
-          $ref: '#/components/responses/Error403'
-      parameters:
-      - $ref: '#/components/parameters/CsrfToken'
-  /api/boards/{board}/columns:
-    parameters:
-    - $ref: '#/components/parameters/board'
-    get:
-      operationId: listColumns
-      tags:
-      - Columns
-      summary: List columns
-      responses:
-        '200':
-          description: Collection ordered by position then id ascending
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Column'
-                required:
-                - data
-        '401':
-          $ref: '#/components/responses/Error401'
-        '404':
-          $ref: '#/components/responses/Error404'
-    post:
-      operationId: createColumn
-      tags:
-      - Columns
-      summary: Create a column
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Column'
-                required:
-                - data
-        '401':
-          $ref: '#/components/responses/Error401'
-        '419':
-          $ref: '#/components/responses/Error419'
-        '404':
-          $ref: '#/components/responses/Error404'
-        '422':
-          $ref: '#/components/responses/Error422'
-        '403':
-          $ref: '#/components/responses/Error403'
-      parameters:
-      - $ref: '#/components/parameters/CsrfToken'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateColumn'
-  /api/boards/{board}/columns/{column}:
-    parameters:
-    - $ref: '#/components/parameters/board'
-    - $ref: '#/components/parameters/column'
-    get:
-      operationId: getColumn
-      tags:
-      - Columns
-      summary: Read a column
-      responses:
-        '200':
-          description: Requested resource
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Column'
-                required:
-                - data
-        '401':
-          $ref: '#/components/responses/Error401'
-        '404':
-          $ref: '#/components/responses/Error404'
-    patch:
-      operationId: updateColumn
-      tags:
-      - Columns
-      summary: Update a column
       responses:
         '200':
           description: Updated
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: false
+                required:
+                  - data
                 properties:
                   data:
-                    $ref: '#/components/schemas/Column'
-                required:
-                - data
+                    $ref: '#/components/schemas/Board'
+                type: object
+                additionalProperties: false
         '401':
           $ref: '#/components/responses/Error401'
         '419':
           $ref: '#/components/responses/Error419'
+        '403':
+          $ref: '#/components/responses/Error403'
         '404':
           $ref: '#/components/responses/Error404'
         '422':
           $ref: '#/components/responses/Error422'
-        '403':
-          $ref: '#/components/responses/Error403'
-      parameters:
-      - $ref: '#/components/parameters/CsrfToken'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchColumn'
-    delete:
-      operationId: deleteColumn
-      tags:
-      - Columns
-      summary: Soft-delete a column
-      responses:
-        '204':
-          description: Resource and any descendants soft-deleted
-        '401':
-          $ref: '#/components/responses/Error401'
-        '419':
-          $ref: '#/components/responses/Error419'
-        '404':
-          $ref: '#/components/responses/Error404'
-        '403':
-          $ref: '#/components/responses/Error403'
-      parameters:
-      - $ref: '#/components/parameters/CsrfToken'
-  /api/columns/{column}/cards:
     parameters:
-    - $ref: '#/components/parameters/column'
+      -
+        $ref: '#/components/parameters/board'
+  '/api/columns/{column}/cards':
     get:
-      operationId: listCards
       tags:
-      - Cards
-      summary: List cards
+        - Cards
+      summary: 'List cards'
+      operationId: listCards
       responses:
         '200':
-          description: Collection ordered by position then id ascending
+          description: 'Collection ordered by position then id ascending'
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: false
+                required:
+                  - data
                 properties:
                   data:
                     type: array
                     items:
                       $ref: '#/components/schemas/Card'
-                required:
-                - data
+                type: object
+                additionalProperties: false
         '401':
           $ref: '#/components/responses/Error401'
         '404':
           $ref: '#/components/responses/Error404'
     post:
-      operationId: createCard
       tags:
-      - Cards
-      summary: Create a card
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Card'
-                required:
-                - data
-        '401':
-          $ref: '#/components/responses/Error401'
-        '419':
-          $ref: '#/components/responses/Error419'
-        '404':
-          $ref: '#/components/responses/Error404'
-        '422':
-          $ref: '#/components/responses/Error422'
-        '403':
-          $ref: '#/components/responses/Error403'
+        - Cards
+      summary: 'Create a card'
+      operationId: createCard
       parameters:
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateCard'
-  /api/columns/{column}/cards/{card}:
-    parameters:
-    - $ref: '#/components/parameters/column'
-    - $ref: '#/components/parameters/card'
-    get:
-      operationId: getCard
-      tags:
-      - Cards
-      summary: Read a card
       responses:
-        '200':
-          description: Requested resource
+        '201':
+          description: Created
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: false
+                required:
+                  - data
                 properties:
                   data:
                     $ref: '#/components/schemas/Card'
-                required:
-                - data
-        '401':
-          $ref: '#/components/responses/Error401'
-        '404':
-          $ref: '#/components/responses/Error404'
-    patch:
-      operationId: updateCard
-      tags:
-      - Cards
-      summary: Update a card
-      responses:
-        '200':
-          description: Updated
-          content:
-            application/json:
-              schema:
                 type: object
                 additionalProperties: false
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Card'
-                required:
-                - data
         '401':
           $ref: '#/components/responses/Error401'
         '419':
           $ref: '#/components/responses/Error419'
+        '403':
+          $ref: '#/components/responses/Error403'
         '404':
           $ref: '#/components/responses/Error404'
         '422':
           $ref: '#/components/responses/Error422'
-        '403':
-          $ref: '#/components/responses/Error403'
-        '409':
-          description: An original field value differs from the current card
+    parameters:
+      -
+        $ref: '#/components/parameters/column'
+  '/api/columns/{column}/cards/{card}':
+    get:
+      tags:
+        - Cards
+      summary: 'Read a card'
+      operationId: getCard
+      responses:
+        '200':
+          description: 'Requested resource'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Card'
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+    delete:
+      tags:
+        - Cards
+      summary: 'Soft-delete a card'
+      operationId: deleteCard
       parameters:
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: 'Resource and any descendants soft-deleted'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '419':
+          $ref: '#/components/responses/Error419'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+    patch:
+      tags:
+        - Cards
+      summary: 'Update a card'
+      operationId: updateCard
+      parameters:
+        -
+          $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/PatchCard'
-    delete:
-      operationId: deleteCard
-      tags:
-      - Cards
-      summary: Soft-delete a card
       responses:
-        '204':
-          description: Resource and any descendants soft-deleted
-        '401':
-          $ref: '#/components/responses/Error401'
-        '419':
-          $ref: '#/components/responses/Error419'
-        '404':
-          $ref: '#/components/responses/Error404'
-        '403':
-          $ref: '#/components/responses/Error403'
-      parameters:
-      - $ref: '#/components/parameters/CsrfToken'
-  /api/cards/{card}/move:
-    parameters:
-    - $ref: '#/components/parameters/card'
-    post:
-      operationId: moveCard
-      tags:
-      - Cards
-      summary: Reorder or move a card
-      responses:
-        '200':
-          description: Moved card
+        '409':
+          description: 'An original field value differs from the current card'
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: false
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                required:
+                  - data
                 properties:
                   data:
                     $ref: '#/components/schemas/Card'
-                required:
-                - data
+                type: object
+                additionalProperties: false
         '401':
           $ref: '#/components/responses/Error401'
         '419':
           $ref: '#/components/responses/Error419'
-        '404':
-          $ref: '#/components/responses/Error404'
-        '409':
-          $ref: '#/components/responses/Error409'
-        '422':
-          $ref: '#/components/responses/Error422'
         '403':
           $ref: '#/components/responses/Error403'
-      description: Both neighbor keys are required. Evaluate neighbors in the target column after excluding the
-        moving card. Null previous means first, null next means last, both null require an empty target. Non-null
-        neighbors must be distinct and differ from the moving card (422). Unknown or inaccessible card or target
-        column returns 404. A different accessible board or a stale destination gap returns 409. Repeating the same
-        move succeeds while its neighbors still match. The server assigns position.
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/Error422'
+    parameters:
+      -
+        $ref: '#/components/parameters/column'
+      -
+        $ref: '#/components/parameters/card'
+  '/api/cards/{card}/move':
+    post:
+      tags:
+        - Cards
+      summary: 'Reorder or move a card'
+      description: 'Both neighbor keys are required. Evaluate neighbors in the target column after excluding the moving card. Null previous means first, null next means last, both null require an empty target. Non-null neighbors must be distinct and differ from the moving card (422). Unknown or inaccessible card or target column returns 404. A different accessible board or a stale destination gap returns 409. Repeating the same move succeeds while its neighbors still match. The server assigns position.'
+      operationId: moveCard
       parameters:
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/MoveCard'
-  /auth/github/redirect:
-    get:
-      operationId: startGithubOAuth
-      tags:
-      - Auth
-      summary: Start GitHub sign-in or link the signed-in account
-      description: Socialite stores a single-use state, intent and initiating user in the session. Linking requires
-        intent=link and the same authenticated user at callback.
-      security: []
-      parameters:
-      - name: intent
-        in: query
-        required: false
-        schema:
-          type: string
-          default: login
-          enum:
-          - login
-          - link
       responses:
-        '302':
-          description: Redirect to the GitHub authorization page requesting read:user and user:email.
-          headers:
-            Location:
+        '200':
+          description: 'Moved card'
+          content:
+            application/json:
               schema:
-                type: string
-              description: Navigation destination.
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Card'
+                type: object
+                additionalProperties: false
         '401':
           $ref: '#/components/responses/Error401'
+        '419':
+          $ref: '#/components/responses/Error419'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          $ref: '#/components/responses/Error409'
         '422':
           $ref: '#/components/responses/Error422'
-  /auth/github/callback:
+    parameters:
+      -
+        $ref: '#/components/parameters/card'
+  '/api/boards/{board}/columns':
     get:
-      operationId: finishGithubOAuth
       tags:
-      - Auth
-      summary: Complete a state-validated GitHub sign-in or link
-      description: Known provider IDs sign in to the linked account. A new account requires a verified primary email.
-        Existing emails never cause implicit account linking. Explicit linking requires the initiating session and
-        an unclaimed provider ID. Rotate the session on sign-in. Errors redirect with one of invalid_state, denied,
-        email_unverified, account_exists, identity_in_use or provider_unavailable. All redirect locations are fixed
-        SPA paths.
-      security: []
-      parameters:
-      - name: code
-        in: query
-        required: false
-        schema:
-          type: string
-      - name: state
-        in: query
-        required: false
-        schema:
-          type: string
-      - name: error
-        in: query
-        required: false
-        schema:
-          type: string
+        - Columns
+      summary: 'List columns'
+      operationId: listColumns
       responses:
-        '302':
-          description: Successful login or link redirects to /boards. Errors redirect to /login?oauth={error} for
-            sign-in, /settings/account?oauth={error} for a verified link attempt. If state cannot be validated use
-            /login?oauth=invalid_state.
-          headers:
-            Location:
+        '200':
+          description: 'Collection ordered by position then id ascending'
+          content:
+            application/json:
               schema:
-                type: string
-              description: Navigation destination.
-  /api/broadcasting/auth:
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Column'
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
     post:
-      operationId: authorizePrivateChannel
       tags:
-      - Realtime
-      summary: Authorize a Laravel Reverb private user channel
+        - Columns
+      summary: 'Create a column'
+      operationId: createColumn
       parameters:
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-              - socket_id
-              - channel_name
-              additionalProperties: false
-              properties:
-                socket_id:
-                  type: string
-                  pattern: ^\d+\.\d+$
-                channel_name:
-                  type: string
-                  pattern: ^private-users\.\d+$
+              $ref: '#/components/schemas/CreateColumn'
       responses:
-        '200':
-          description: Pusher protocol channel signature
+        '201':
+          description: Created
           content:
             application/json:
               schema:
-                type: object
                 required:
-                - auth
-                additionalProperties: false
+                  - data
                 properties:
-                  auth:
-                    type: string
+                  data:
+                    $ref: '#/components/schemas/Column'
+                type: object
+                additionalProperties: false
         '401':
           $ref: '#/components/responses/Error401'
+        '419':
+          $ref: '#/components/responses/Error419'
         '403':
           $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/Error422'
+    parameters:
+      -
+        $ref: '#/components/parameters/board'
+  '/api/boards/{board}/columns/{column}':
+    get:
+      tags:
+        - Columns
+      summary: 'Read a column'
+      operationId: getColumn
+      responses:
+        '200':
+          description: 'Requested resource'
+          content:
+            application/json:
+              schema:
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Column'
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+    delete:
+      tags:
+        - Columns
+      summary: 'Soft-delete a column'
+      operationId: deleteColumn
+      parameters:
+        -
+          $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: 'Resource and any descendants soft-deleted'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '419':
+          $ref: '#/components/responses/Error419'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+    patch:
+      tags:
+        - Columns
+      summary: 'Update a column'
+      operationId: updateColumn
+      parameters:
+        -
+          $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchColumn'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Column'
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+        '419':
+          $ref: '#/components/responses/Error419'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '422':
+          $ref: '#/components/responses/Error422'
+    parameters:
+      -
+        $ref: '#/components/parameters/board'
+      -
+        $ref: '#/components/parameters/column'
+  /sanctum/csrf-cookie:
+    get:
+      tags:
+        - Auth
+      summary: 'Initialize CSRF cookies'
+      operationId: csrfCookie
+      responses:
+        '204':
+          description: 'Cookies initialized'
+          headers:
+            Set-Cookie:
+              description: 'Initializes XSRF-TOKEN and the browser session. Preserve all Set-Cookie headers.'
+              schema:
+                type: string
+      security: []
+  /api/auth/register:
+    post:
+      tags:
+        - Auth
+      summary: 'Register and start a session'
+      operationId: authRegister
+      parameters:
+        -
+          $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Registration'
+      responses:
+        '201':
+          description: Registered
+          content:
+            application/json:
+              schema:
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+                type: object
+                additionalProperties: false
         '419':
           $ref: '#/components/responses/Error419'
         '422':
           $ref: '#/components/responses/Error422'
-  /api/boards/{board}/members:
+      security: []
+  /api/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: 'Start a session'
+      operationId: authLogin
+      parameters:
+        -
+          $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+      responses:
+        '200':
+          description: 'Current user'
+          content:
+            application/json:
+              schema:
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+                type: object
+                additionalProperties: false
+        '419':
+          $ref: '#/components/responses/Error419'
+        '422':
+          $ref: '#/components/responses/Error422'
+      security: []
+  /api/auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: 'End the current session'
+      operationId: authLogout
+      parameters:
+        -
+          $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: 'Logged out'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '419':
+          $ref: '#/components/responses/Error419'
+  /api/auth/me:
     get:
       tags:
-      - Board members
-      summary: List board members
+        - Auth
+      summary: 'Read current user'
+      operationId: authMe
+      responses:
+        '200':
+          description: 'Current user'
+          content:
+            application/json:
+              schema:
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+  /auth/github/redirect:
+    get:
+      tags:
+        - Auth
+      summary: 'Start GitHub sign-in or link the signed-in account'
+      description: 'Socialite stores a single-use state, intent and initiating user in the session. Linking requires intent=link and the same authenticated user at callback.'
+      operationId: startGithubOAuth
+      parameters:
+        -
+          name: intent
+          in: query
+          required: false
+          schema:
+            type: string
+            default: login
+            enum:
+              - login
+              - link
+      responses:
+        '302':
+          description: 'Redirect to the GitHub authorization page requesting read:user and user:email.'
+          headers:
+            Location:
+              description: 'Navigation destination.'
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Error401'
+        '422':
+          $ref: '#/components/responses/Error422'
+      security: []
+  /auth/github/callback:
+    get:
+      tags:
+        - Auth
+      summary: 'Complete a state-validated GitHub sign-in or link'
+      description: 'Known provider IDs sign in to the linked account. A new account requires a verified primary email. Existing emails never cause implicit account linking. Explicit linking requires the initiating session and an unclaimed provider ID. Rotate the session on sign-in. Errors redirect with one of invalid_state, denied, email_unverified, account_exists, identity_in_use or provider_unavailable. All redirect locations are fixed SPA paths.'
+      operationId: finishGithubOAuth
+      parameters:
+        -
+          name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        -
+          name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        -
+          name: error
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '302':
+          description: 'Successful login or link redirects to /boards. Errors redirect to /login?oauth={error} for sign-in, /settings/account?oauth={error} for a verified link attempt. If state cannot be validated use /login?oauth=invalid_state.'
+          headers:
+            Location:
+              description: 'Navigation destination.'
+              schema:
+                type: string
+      security: []
+  '/api/boards/{board}/members':
+    get:
+      tags:
+        - 'Board members'
+      summary: 'List board members'
       operationId: listBoardMembers
       parameters:
-      - $ref: '#/components/parameters/board'
+        -
+          $ref: '#/components/parameters/board'
       responses:
         '200':
           description: Success
@@ -727,7 +637,7 @@ paths:
             application/json:
               schema:
                 required:
-                - data
+                  - data
                 properties:
                   data:
                     type: array
@@ -741,20 +651,22 @@ paths:
           $ref: '#/components/responses/Error404'
     post:
       tags:
-      - Board members
-      summary: Add a registered user to the board
+        - 'Board members'
+      summary: 'Add a registered user to the board'
       operationId: addBoardMember
       parameters:
-      - $ref: '#/components/parameters/board'
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/board'
+        -
+          $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               required:
-              - email
-              - role
+                - email
+                - role
               properties:
                 email:
                   type: string
@@ -762,18 +674,18 @@ paths:
                   maxLength: 255
                 role:
                   type: string
-                  pattern: ^(editor|viewer|custom-[1-9][0-9]*)$
+                  pattern: '^(editor|viewer|custom-[1-9][0-9]*)$'
                   maxLength: 40
               type: object
               additionalProperties: false
       responses:
         '201':
-          description: Member added
+          description: 'Member added'
           content:
             application/json:
               schema:
                 required:
-                - data
+                  - data
                 properties:
                   data:
                     $ref: '#/components/schemas/BoardMember'
@@ -789,26 +701,29 @@ paths:
           $ref: '#/components/responses/Error419'
         '422':
           $ref: '#/components/responses/Error422'
-  /api/boards/{board}/members/{member}:
+  '/api/boards/{board}/members/{member}':
     delete:
       tags:
-      - Board members
-      summary: Remove a board member
+        - 'Board members'
+      summary: 'Remove a board member'
       operationId: deleteBoardMember
       parameters:
-      - $ref: '#/components/parameters/board'
-      - name: member
-        in: path
-        description: Member user ID
-        required: true
-        schema:
-          type: integer
-          format: int64
-          minimum: 1
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/board'
+        -
+          name: member
+          in: path
+          description: 'Member user ID'
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        -
+          $ref: '#/components/parameters/CsrfToken'
       responses:
         '204':
-          description: Member removed
+          description: 'Member removed'
         '401':
           $ref: '#/components/responses/Error401'
         '403':
@@ -821,31 +736,34 @@ paths:
           $ref: '#/components/responses/Error422'
     patch:
       tags:
-      - Board members
-      summary: Change a board member role
+        - 'Board members'
+      summary: 'Change a board member role'
       operationId: updateBoardMember
       parameters:
-      - $ref: '#/components/parameters/board'
-      - name: member
-        in: path
-        description: Member user ID
-        required: true
-        schema:
-          type: integer
-          format: int64
-          minimum: 1
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/board'
+        -
+          name: member
+          in: path
+          description: 'Member user ID'
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        -
+          $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               required:
-              - role
+                - role
               properties:
                 role:
                   type: string
-                  pattern: ^(editor|viewer|custom-[1-9][0-9]*)$
+                  pattern: '^(editor|viewer|custom-[1-9][0-9]*)$'
                   maxLength: 40
               type: object
               additionalProperties: false
@@ -856,7 +774,7 @@ paths:
             application/json:
               schema:
                 required:
-                - data
+                  - data
                 properties:
                   data:
                     $ref: '#/components/schemas/BoardMember'
@@ -872,22 +790,23 @@ paths:
           $ref: '#/components/responses/Error419'
         '422':
           $ref: '#/components/responses/Error422'
-  /api/boards/{board}/roles:
+  '/api/boards/{board}/roles':
     get:
       tags:
-      - Board roles
-      summary: List custom roles
+        - 'Board roles'
+      summary: 'List custom roles'
       operationId: listBoardRoles
       parameters:
-      - $ref: '#/components/parameters/board'
+        -
+          $ref: '#/components/parameters/board'
       responses:
         '200':
-          description: List custom roles
+          description: 'List custom roles'
           content:
             application/json:
               schema:
                 required:
-                - data
+                  - data
                 properties:
                   data:
                     type: array
@@ -901,12 +820,14 @@ paths:
           $ref: '#/components/responses/Error404'
     post:
       tags:
-      - Board roles
-      summary: Create a custom role
+        - 'Board roles'
+      summary: 'Create a custom role'
       operationId: createBoardRole
       parameters:
-      - $ref: '#/components/parameters/board'
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/board'
+        -
+          $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
@@ -915,12 +836,12 @@ paths:
               $ref: '#/components/schemas/RoleInput'
       responses:
         '201':
-          description: Create a custom role
+          description: 'Create a custom role'
           content:
             application/json:
               schema:
                 required:
-                - data
+                  - data
                 properties:
                   data:
                     $ref: '#/components/schemas/CustomRole'
@@ -936,24 +857,27 @@ paths:
           $ref: '#/components/responses/Error419'
         '422':
           $ref: '#/components/responses/Error422'
-  /api/boards/{board}/roles/{role}:
+  '/api/boards/{board}/roles/{role}':
     delete:
       tags:
-      - Board roles
-      summary: Remove an unassigned custom role
+        - 'Board roles'
+      summary: 'Remove an unassigned custom role'
       operationId: deleteBoardRole
       parameters:
-      - $ref: '#/components/parameters/board'
-      - name: role
-        in: path
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/board'
+        -
+          name: role
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        -
+          $ref: '#/components/parameters/CsrfToken'
       responses:
         '204':
-          description: Remove an unassigned custom role
+          description: 'Remove an unassigned custom role'
         '401':
           $ref: '#/components/responses/Error401'
         '403':
@@ -966,18 +890,21 @@ paths:
           $ref: '#/components/responses/Error422'
     patch:
       tags:
-      - Board roles
-      summary: Change a custom role
+        - 'Board roles'
+      summary: 'Change a custom role'
       operationId: updateBoardRole
       parameters:
-      - $ref: '#/components/parameters/board'
-      - name: role
-        in: path
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/board'
+        -
+          name: role
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        -
+          $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
@@ -986,12 +913,12 @@ paths:
               $ref: '#/components/schemas/RoleInput'
       responses:
         '200':
-          description: Change a custom role
+          description: 'Change a custom role'
           content:
             application/json:
               schema:
                 required:
-                - data
+                  - data
                 properties:
                   data:
                     $ref: '#/components/schemas/CustomRole'
@@ -1007,22 +934,79 @@ paths:
           $ref: '#/components/responses/Error419'
         '422':
           $ref: '#/components/responses/Error422'
-  /api/cards/{card}/activity:
+  /api/boards:
     get:
       tags:
-      - Cards
-      summary: List card comments and attachments
-      operationId: getCardActivity
-      parameters:
-      - $ref: '#/components/parameters/card'
+        - Boards
+      summary: 'List boards'
+      operationId: listBoards
       responses:
         '200':
-          description: Card activity data
+          description: 'Collection ordered by id ascending'
           content:
             application/json:
               schema:
                 required:
-                - data
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Board'
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+    post:
+      tags:
+        - Boards
+      summary: 'Create a board'
+      operationId: createBoard
+      parameters:
+        -
+          $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBoard'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Board'
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+        '419':
+          $ref: '#/components/responses/Error419'
+        '422':
+          $ref: '#/components/responses/Error422'
+  '/api/cards/{card}/activity':
+    get:
+      tags:
+        - Cards
+      summary: 'List card comments and attachments'
+      operationId: getCardActivity
+      parameters:
+        -
+          $ref: '#/components/parameters/card'
+      responses:
+        '200':
+          description: 'Card activity data'
+          content:
+            application/json:
+              schema:
+                required:
+                  - data
                 properties:
                   data:
                     $ref: '#/components/schemas/CardActivity'
@@ -1032,22 +1016,25 @@ paths:
           $ref: '#/components/responses/Error401'
         '404':
           $ref: '#/components/responses/Error404'
-  /api/cards/{card}/comments:
+  '/api/cards/{card}/comments':
     post:
       tags:
-      - Cards
-      summary: Add a comment
+        - Cards
+      summary: 'Add a comment'
+      description: "Use @ followed by a board member's email address to notify that member."
       operationId: createCardComment
       parameters:
-      - $ref: '#/components/parameters/card'
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/card'
+        -
+          $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               required:
-              - body
+                - body
               properties:
                 body:
                   type: string
@@ -1057,12 +1044,12 @@ paths:
               additionalProperties: false
       responses:
         '201':
-          description: Card activity data
+          description: 'Card activity data'
           content:
             application/json:
               schema:
                 required:
-                - data
+                  - data
                 properties:
                   data:
                     $ref: '#/components/schemas/CardComment'
@@ -1078,22 +1065,25 @@ paths:
           $ref: '#/components/responses/Error419'
         '422':
           $ref: '#/components/responses/Error422'
-  /api/cards/{card}/comments/{comment}:
+  '/api/cards/{card}/comments/{comment}':
     delete:
       tags:
-      - Cards
-      summary: Delete your own comment
+        - Cards
+      summary: 'Delete your own comment'
       operationId: deleteCardComment
       parameters:
-      - $ref: '#/components/parameters/card'
-      - name: comment
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-          minimum: 1
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/card'
+        -
+          name: comment
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        -
+          $ref: '#/components/parameters/CsrfToken'
       responses:
         '204':
           description: Removed
@@ -1105,23 +1095,25 @@ paths:
           $ref: '#/components/responses/Error404'
         '419':
           $ref: '#/components/responses/Error419'
-  /api/cards/{card}/attachments:
+  '/api/cards/{card}/attachments':
     post:
       tags:
-      - Cards
-      summary: Attach a file
-      description: Up to 10 MiB per file, 20 files per card and 50 MiB total per card.
+        - Cards
+      summary: 'Attach a file'
+      description: 'Up to 10 MiB per file, 20 files per card and 50 MiB total per card.'
       operationId: uploadCardAttachment
       parameters:
-      - $ref: '#/components/parameters/card'
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/card'
+        -
+          $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               required:
-              - file
+                - file
               properties:
                 file:
                   type: string
@@ -1129,12 +1121,12 @@ paths:
               type: object
       responses:
         '201':
-          description: Card activity data
+          description: 'Card activity data'
           content:
             application/json:
               schema:
                 required:
-                - data
+                  - data
                 properties:
                   data:
                     $ref: '#/components/schemas/CardAttachment'
@@ -1150,35 +1142,38 @@ paths:
           $ref: '#/components/responses/Error419'
         '422':
           $ref: '#/components/responses/Error422'
-  /api/cards/{card}/attachments/{attachment}:
+  '/api/cards/{card}/attachments/{attachment}':
     get:
       tags:
-      - Cards
-      summary: Download a private attachment
+        - Cards
+      summary: 'Download a private attachment'
       operationId: downloadCardAttachment
       parameters:
-      - $ref: '#/components/parameters/card'
-      - name: attachment
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-          minimum: 1
-      - name: inline
-        in: query
-        description: Render a supported image inline
-        schema:
-          type: boolean
+        -
+          $ref: '#/components/parameters/card'
+        -
+          name: attachment
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        -
+          name: inline
+          in: query
+          description: 'Render a supported image inline'
+          schema:
+            type: boolean
       responses:
         '200':
-          description: File bytes
+          description: 'File bytes'
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
-            image/*:
+            'image/*':
               schema:
                 type: string
                 format: binary
@@ -1188,19 +1183,22 @@ paths:
           $ref: '#/components/responses/Error404'
     delete:
       tags:
-      - Cards
-      summary: Remove an attachment
+        - Cards
+      summary: 'Remove an attachment'
       operationId: deleteCardAttachment
       parameters:
-      - $ref: '#/components/parameters/card'
-      - name: attachment
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
-          minimum: 1
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/card'
+        -
+          name: attachment
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        -
+          $ref: '#/components/parameters/CsrfToken'
       responses:
         '204':
           description: Removed
@@ -1212,22 +1210,119 @@ paths:
           $ref: '#/components/responses/Error404'
         '419':
           $ref: '#/components/responses/Error419'
-  /api/boards/{board}/card-templates:
+  '/api/boards/{board}/archive':
     get:
       tags:
-      - Cards
-      summary: List this board's card templates
-      operationId: listCardTemplates
+        - Cards
+      summary: 'List archived cards on the board'
+      operationId: listArchivedCards
       parameters:
-      - $ref: '#/components/parameters/board'
+        -
+          $ref: '#/components/parameters/board'
       responses:
         '200':
-          description: Available templates
+          description: 'Archived cards'
           content:
             application/json:
               schema:
                 required:
-                - data
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ArchivedCard'
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+  '/api/cards/{card}/archive':
+    post:
+      tags:
+        - Cards
+      summary: 'Archive a card'
+      description: 'Requires cards.delete.'
+      operationId: archiveCard
+      parameters:
+        -
+          $ref: '#/components/parameters/card'
+        -
+          $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Archived
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '419':
+          $ref: '#/components/responses/Error419'
+        '422':
+          $ref: '#/components/responses/Error422'
+  '/api/cards/{card}/restore':
+    post:
+      tags:
+        - Cards
+      summary: 'Restore an archived card'
+      description: 'Requires cards.delete. Restores to the end of the original column. Choose another active column on the same board if the original column was deleted.'
+      operationId: restoreCard
+      parameters:
+        -
+          $ref: '#/components/parameters/card'
+        -
+          $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              properties:
+                column_id:
+                  type: integer
+                  format: int64
+                  minimum: 1
+              type: object
+              additionalProperties: false
+      responses:
+        '204':
+          description: Restored
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '409':
+          description: 'The requested destination conflicts with the status of the original column'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '419':
+          $ref: '#/components/responses/Error419'
+        '422':
+          $ref: '#/components/responses/Error422'
+  '/api/boards/{board}/card-templates':
+    get:
+      tags:
+        - Cards
+      summary: "List this board's card templates"
+      operationId: listCardTemplates
+      parameters:
+        -
+          $ref: '#/components/parameters/board'
+      responses:
+        '200':
+          description: 'Available templates'
+          content:
+            application/json:
+              schema:
+                required:
+                  - data
                 properties:
                   data:
                     type: array
@@ -1241,21 +1336,23 @@ paths:
           $ref: '#/components/responses/Error404'
     post:
       tags:
-      - Cards
-      summary: Save a board card as a reusable template
-      description: Requires cards.create. Takes a snapshot of the title, description, labels and checklists.
+        - Cards
+      summary: 'Save a board card as a reusable template'
+      description: 'Requires cards.create. Takes a snapshot of the title, description, labels and checklists.'
       operationId: saveCardTemplate
       parameters:
-      - $ref: '#/components/parameters/board'
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/board'
+        -
+          $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               required:
-              - card_id
-              - name
+                - card_id
+                - name
               properties:
                 card_id:
                   type: integer
@@ -1269,12 +1366,12 @@ paths:
               additionalProperties: false
       responses:
         '201':
-          description: Saved template
+          description: 'Saved template'
           content:
             application/json:
               schema:
                 required:
-                - data
+                  - data
                 properties:
                   data:
                     $ref: '#/components/schemas/CardTemplate'
@@ -1290,23 +1387,25 @@ paths:
           $ref: '#/components/responses/Error419'
         '422':
           $ref: '#/components/responses/Error422'
-  /api/columns/{column}/cards/from-template:
+  '/api/columns/{column}/cards/from-template':
     post:
       tags:
-      - Cards
-      summary: Append a card using a template from the same board
-      description: Requires cards.create. Checklist and item identifiers are new and every item starts unchecked.
+        - Cards
+      summary: 'Append a card using a template from the same board'
+      description: 'Requires cards.create. Checklist and item identifiers are new and every item starts unchecked.'
       operationId: createCardFromTemplate
       parameters:
-      - $ref: '#/components/parameters/column'
-      - $ref: '#/components/parameters/CsrfToken'
+        -
+          $ref: '#/components/parameters/column'
+        -
+          $ref: '#/components/parameters/CsrfToken'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               required:
-              - template_id
+                - template_id
               properties:
                 template_id:
                   type: integer
@@ -1316,12 +1415,12 @@ paths:
               additionalProperties: false
       responses:
         '201':
-          description: Created card
+          description: 'Created card'
           content:
             application/json:
               schema:
                 required:
-                - data
+                  - data
                 properties:
                   data:
                     $ref: '#/components/schemas/Card'
@@ -1337,51 +1436,389 @@ paths:
           $ref: '#/components/responses/Error419'
         '422':
           $ref: '#/components/responses/Error422'
+  '/api/cards/{card}/history':
+    get:
+      tags:
+        - Cards
+      summary: 'List the 100 latest changes to a card'
+      operationId: listCardHistory
+      parameters:
+        -
+          $ref: '#/components/parameters/card'
+      responses:
+        '200':
+          description: 'Card history'
+          content:
+            application/json:
+              schema:
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CardHistoryEntry'
+                    maxItems: 100
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+  /api/me/notifications:
+    get:
+      tags:
+        - Notifications
+      summary: 'List inbox notifications with unread entries first'
+      description: 'Returns up to 100 private notifications for cards still accessible to the signed-in user. Deadline reminders cover today and tomorrow (application time zone).'
+      operationId: listMyNotifications
+      responses:
+        '200':
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BoardNotification'
+                    maxItems: 100
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+  '/api/me/notifications/{notification}/read':
+    post:
+      tags:
+        - Notifications
+      summary: 'Mark a notification as read'
+      operationId: readMyNotification
+      parameters:
+        -
+          name: notification
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        -
+          $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: 'Notification marked as read'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '419':
+          $ref: '#/components/responses/Error419'
+  /api/me/tasks:
+    get:
+      tags:
+        - Cards
+      summary: "List the current user's incomplete assigned cards across accessible boards"
+      operationId: listMyTasks
+      responses:
+        '200':
+          description: 'Active tasks ordered by due date, then id'
+          content:
+            application/json:
+              schema:
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AssignedTask'
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+  /api/broadcasting/auth:
+    post:
+      tags:
+        - Realtime
+      summary: 'Authorize a Laravel Reverb private user channel'
+      operationId: authorizePrivateChannel
+      parameters:
+        -
+          $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              required:
+                - socket_id
+                - channel_name
+              properties:
+                socket_id:
+                  type: string
+                  pattern: ^\d+\.\d+$
+                channel_name:
+                  type: string
+                  pattern: ^private-users\.\d+$
+              type: object
+              additionalProperties: false
+      responses:
+        '200':
+          description: 'Pusher protocol channel signature'
+          content:
+            application/json:
+              schema:
+                required:
+                  - auth
+                properties:
+                  auth:
+                    type: string
+                type: object
+                additionalProperties: false
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '419':
+          $ref: '#/components/responses/Error419'
+        '422':
+          $ref: '#/components/responses/Error422'
 components:
-  securitySchemes:
-    SanctumSession:
-      type: apiKey
-      in: cookie
-      name: laravel_session
-  parameters:
-    board:
-      name: board
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
-        minimum: 1
-    column:
-      name: column
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
-        minimum: 1
-    card:
-      name: card
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
-        minimum: 1
-    CsrfToken:
-      name: X-XSRF-TOKEN
-      in: header
-      required: true
-      schema:
-        type: string
-      description: URL-decoded value of the XSRF-TOKEN cookie.
   schemas:
+    BoardMember:
+      required:
+        - id
+        - name
+        - email
+        - role
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/BoardRoleKey'
+      type: object
+      additionalProperties: false
+    BoardRoleKey:
+      type: string
+      pattern: '^(owner|editor|viewer|custom-[1-9][0-9]*)$'
+    Permissions:
+      type: array
+      items:
+        type: string
+        enum:
+          - board.rename
+          - columns.create
+          - columns.edit
+          - columns.delete
+          - cards.create
+          - cards.edit
+          - cards.move
+          - cards.delete
+          - cards.comment
+          - cards.attach
+      maxItems: 10
+      uniqueItems: true
+    RoleInput:
+      required:
+        - name
+        - permissions
+      properties:
+        name:
+          type: string
+          maxLength: 80
+          minLength: 1
+        permissions:
+          $ref: '#/components/schemas/Permissions'
+      type: object
+      additionalProperties: false
+    CustomRole:
+      required:
+        - id
+        - key
+        - name
+        - permissions
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        key:
+          type: string
+          pattern: '^custom-[1-9][0-9]*$'
+        name:
+          type: string
+          maxLength: 80
+          minLength: 1
+        permissions:
+          $ref: '#/components/schemas/Permissions'
+      type: object
+      additionalProperties: false
+    CardLabel:
+      required:
+        - name
+        - color
+      properties:
+        name:
+          type: string
+          maxLength: 50
+          minLength: 1
+        color:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+      type: object
+      additionalProperties: false
+    CardChecklistItem:
+      required:
+        - id
+        - title
+        - completed
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 255
+          minLength: 1
+        completed:
+          type: boolean
+      type: object
+      additionalProperties: false
+    CardChecklist:
+      required:
+        - id
+        - title
+        - items
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 255
+          minLength: 1
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardChecklistItem'
+          maxItems: 100
+      type: object
+      additionalProperties: false
+    CardCommentAuthor:
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+      type: object
+      nullable: true
+      additionalProperties: false
+    CardComment:
+      required:
+        - id
+        - body
+        - author
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        body:
+          type: string
+          maxLength: 10000
+          minLength: 1
+        author:
+          $ref: '#/components/schemas/CardCommentAuthor'
+        created_at:
+          type: string
+          format: date-time
+      type: object
+      additionalProperties: false
+    CardAttachment:
+      required:
+        - id
+        - name
+        - mime_type
+        - size
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+        mime_type:
+          type: string
+        size:
+          type: integer
+          maximum: 10485760
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+      type: object
+      additionalProperties: false
+    CardActivity:
+      required:
+        - comments
+        - attachments
+      properties:
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardComment'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardAttachment'
+      type: object
+      additionalProperties: false
+    ArchivedCard:
+      required:
+        - id
+        - title
+        - column_id
+        - column_title
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        title:
+          type: string
+          maxLength: 255
+          minLength: 1
+        column_id:
+          type: integer
+          format: int64
+          minimum: 1
+        column_title:
+          type: string
+          maxLength: 255
+          minLength: 1
+      type: object
+      additionalProperties: false
     CardTemplate:
       required:
-      - id
-      - name
-      - title
-      - description
+        - id
+        - name
+        - title
+        - description
       properties:
         id:
           type: integer
@@ -1401,9 +1838,107 @@ components:
           maxLength: 10000
       type: object
       additionalProperties: false
-    User:
+    CardHistoryEntry:
+      required:
+        - id
+        - kind
+        - detail
+        - actor_name
+        - created_at
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        kind:
+          type: string
+          enum:
+            - moved
+            - start_date
+            - due_date
+            - assignees
+            - completed
+            - reopened
+        detail:
+          type: string
+          nullable: true
+        actor_name:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
       type: object
       additionalProperties: false
+    BoardNotification:
+      required:
+        - id
+        - kind
+        - board_id
+        - card_id
+        - card_title
+        - read
+        - created_at
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        kind:
+          type: string
+          enum:
+            - assigned
+            - mentioned
+            - due_soon
+        board_id:
+          type: integer
+          minimum: 1
+        card_id:
+          type: integer
+          minimum: 1
+        card_title:
+          type: string
+        read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+      type: object
+      additionalProperties: false
+    AssignedTask:
+      required:
+        - id
+        - title
+        - board_id
+        - board_title
+        - column_id
+        - column_title
+        - due_date
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        board_id:
+          type: integer
+          format: int64
+        board_title:
+          type: string
+        column_id:
+          type: integer
+          format: int64
+        column_title:
+          type: string
+        due_date:
+          type: string
+          format: date
+          nullable: true
+      type: object
+      additionalProperties: false
+    User:
+      required:
+        - id
+        - name
+        - email
       properties:
         id:
           type: integer
@@ -1411,62 +1946,65 @@ components:
           minimum: 1
         name:
           type: string
-          minLength: 1
           maxLength: 255
+          minLength: 1
         email:
           type: string
           format: email
           maxLength: 255
-      required:
-      - id
-      - name
-      - email
-    Login:
       type: object
       additionalProperties: false
+    Login:
+      required:
+        - email
+        - password
       properties:
         email:
           type: string
           format: email
           maxLength: 255
         password:
+          description: 'At most 72 UTF-8 bytes, without NUL characters.'
           type: string
           format: password
-          description: At most 72 UTF-8 bytes, without NUL characters.
           writeOnly: true
-      required:
-      - email
-      - password
-    Registration:
       type: object
       additionalProperties: false
+    Registration:
+      required:
+        - name
+        - email
+        - password
+        - password_confirmation
       properties:
         name:
           type: string
-          minLength: 1
           maxLength: 255
+          minLength: 1
         email:
           type: string
           format: email
           maxLength: 255
         password:
+          description: 'At most 72 UTF-8 bytes, without NUL characters.'
           type: string
           format: password
-          description: At most 72 UTF-8 bytes, without NUL characters.
           writeOnly: true
           minLength: 8
         password_confirmation:
           type: string
           format: password
           writeOnly: true
-      required:
-      - name
-      - email
-      - password
-      - password_confirmation
-    Board:
       type: object
       additionalProperties: false
+    Board:
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+        - role
+        - permissions
       properties:
         id:
           type: integer
@@ -1474,8 +2012,8 @@ components:
           minimum: 1
         title:
           type: string
-          minLength: 1
           maxLength: 255
+          minLength: 1
         created_at:
           type: string
           format: date-time
@@ -1486,16 +2024,17 @@ components:
           $ref: '#/components/schemas/BoardRoleKey'
         permissions:
           $ref: '#/components/schemas/Permissions'
-      required:
-      - id
-      - title
-      - created_at
-      - updated_at
-      - role
-      - permissions
-    Column:
       type: object
       additionalProperties: false
+    Column:
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+        - board_id
+        - position
+        - wip_limit
       properties:
         id:
           type: integer
@@ -1503,8 +2042,8 @@ components:
           minimum: 1
         title:
           type: string
-          minLength: 1
           maxLength: 255
+          minLength: 1
         created_at:
           type: string
           format: date-time
@@ -1519,16 +2058,29 @@ components:
           type: integer
           format: int32
           minimum: 1
-      required:
-      - id
-      - title
-      - created_at
-      - updated_at
-      - board_id
-      - position
-    Card:
+        wip_limit:
+          type: integer
+          format: int32
+          nullable: true
+          maximum: 2147483647
+          minimum: 1
       type: object
       additionalProperties: false
+    Card:
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+        - column_id
+        - description
+        - position
+        - start_date
+        - due_date
+        - completed
+        - labels
+        - assignee_ids
+        - checklists
       properties:
         id:
           type: integer
@@ -1536,8 +2088,8 @@ components:
           minimum: 1
         title:
           type: string
-          minLength: 1
           maxLength: 255
+          minLength: 1
         created_at:
           type: string
           format: date-time
@@ -1560,7 +2112,7 @@ components:
           format: date
           nullable: true
         due_date:
-          description: On or after start_date
+          description: 'On or after start_date'
           type: string
           format: date
           nullable: true
@@ -1583,23 +2135,17 @@ components:
           items:
             $ref: '#/components/schemas/CardChecklist'
           maxItems: 20
-      required:
-      - id
-      - title
-      - created_at
-      - updated_at
-      - column_id
-      - description
-      - position
-      - start_date
-      - due_date
-      - completed
-      - labels
-      - assignee_ids
-      - checklists
-    BoardDetail:
       type: object
       additionalProperties: false
+    BoardDetail:
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+        - columns
+        - role
+        - permissions
       properties:
         id:
           type: integer
@@ -1607,8 +2153,8 @@ components:
           minimum: 1
         title:
           type: string
-          minLength: 1
           maxLength: 255
+          minLength: 1
         created_at:
           type: string
           format: date-time
@@ -1616,25 +2162,26 @@ components:
           type: string
           format: date-time
         columns:
+          description: 'Active columns in position, id order.'
           type: array
           items:
             $ref: '#/components/schemas/ColumnDetail'
-          description: Active columns in position, id order.
         role:
           $ref: '#/components/schemas/BoardRoleKey'
         permissions:
           $ref: '#/components/schemas/Permissions'
-      required:
-      - id
-      - title
-      - created_at
-      - updated_at
-      - columns
-      - role
-      - permissions
-    ColumnDetail:
       type: object
       additionalProperties: false
+    ColumnDetail:
+      required:
+        - id
+        - title
+        - created_at
+        - updated_at
+        - board_id
+        - position
+        - cards
+        - wip_limit
       properties:
         id:
           type: integer
@@ -1642,8 +2189,8 @@ components:
           minimum: 1
         title:
           type: string
-          minLength: 1
           maxLength: 255
+          minLength: 1
         created_at:
           type: string
           format: date-time
@@ -1659,21 +2206,23 @@ components:
           format: int32
           minimum: 1
         cards:
+          description: 'Active cards in position, id order.'
           type: array
           items:
             $ref: '#/components/schemas/Card'
-          description: Active cards in position, id order.
-      required:
-      - id
-      - title
-      - created_at
-      - updated_at
-      - board_id
-      - position
-      - cards
-    MoveCard:
+        wip_limit:
+          type: integer
+          format: int32
+          nullable: true
+          maximum: 2147483647
+          minimum: 1
       type: object
       additionalProperties: false
+    MoveCard:
+      required:
+        - column_id
+        - previous_card_id
+        - next_card_id
       properties:
         column_id:
           type: integer
@@ -1682,63 +2231,73 @@ components:
         previous_card_id:
           type: integer
           format: int64
-          minimum: 1
           nullable: true
+          minimum: 1
         next_card_id:
           type: integer
           format: int64
-          minimum: 1
           nullable: true
-      required:
-      - column_id
-      - previous_card_id
-      - next_card_id
+          minimum: 1
+      type: object
+      additionalProperties: false
     CreateBoard:
-      type: object
-      additionalProperties: false
+      required:
+        - title
       properties:
         title:
           type: string
-          minLength: 1
           maxLength: 255
-      required:
-      - title
+          minLength: 1
+      type: object
+      additionalProperties: false
     PatchBoard:
-      type: object
-      additionalProperties: false
+      minProperties: 1
       properties:
         title:
           type: string
-          minLength: 1
           maxLength: 255
-      minProperties: 1
+          minLength: 1
+      type: object
+      additionalProperties: false
     CreateColumn:
-      type: object
-      additionalProperties: false
-      properties:
-        title:
-          type: string
-          minLength: 1
-          maxLength: 255
       required:
-      - title
+        - title
+      properties:
+        wip_limit:
+          type: integer
+          format: int32
+          nullable: true
+          maximum: 2147483647
+          minimum: 1
+        title:
+          type: string
+          maxLength: 255
+          minLength: 1
+      type: object
+      additionalProperties: false
     PatchColumn:
-      type: object
-      additionalProperties: false
-      properties:
-        title:
-          type: string
-          minLength: 1
-          maxLength: 255
       minProperties: 1
-    CreateCard:
+      properties:
+        wip_limit:
+          type: integer
+          format: int32
+          nullable: true
+          maximum: 2147483647
+          minimum: 1
+        title:
+          type: string
+          maxLength: 255
+          minLength: 1
       type: object
       additionalProperties: false
+    CreateCard:
+      required:
+        - title
       properties:
         title:
           type: string
-          minLength: 1
           maxLength: 255
+          minLength: 1
         description:
           type: string
           nullable: true
@@ -1748,7 +2307,7 @@ components:
           format: date
           nullable: true
         due_date:
-          description: On or after start_date
+          description: 'On or after start_date'
           type: string
           format: date
           nullable: true
@@ -1771,16 +2330,15 @@ components:
           items:
             $ref: '#/components/schemas/CardChecklist'
           maxItems: 20
-      required:
-      - title
-    PatchCard:
       type: object
       additionalProperties: false
+    PatchCard:
+      minProperties: 1
       properties:
         title:
           type: string
-          minLength: 1
           maxLength: 255
+          minLength: 1
         description:
           type: string
           nullable: true
@@ -1790,7 +2348,7 @@ components:
           format: date
           nullable: true
         due_date:
-          description: On or after start_date
+          description: 'On or after start_date'
           type: string
           format: date
           nullable: true
@@ -1814,7 +2372,7 @@ components:
             $ref: '#/components/schemas/CardChecklist'
           maxItems: 20
         base:
-          description: Original values of exactly the fields included in this update. A mismatch returns HTTP 409.
+          description: 'Original values of exactly the fields included in this update. A mismatch returns HTTP 409.'
           minProperties: 1
           properties:
             title:
@@ -1854,18 +2412,20 @@ components:
               maxItems: 20
           type: object
           additionalProperties: false
-      minProperties: 1
-    Error:
       type: object
       additionalProperties: false
+    Error:
+      required:
+        - message
       properties:
         message:
           type: string
-      required:
-      - message
-    ValidationError:
       type: object
       additionalProperties: false
+    ValidationError:
+      required:
+        - message
+        - errors
       properties:
         message:
           type: string
@@ -1875,276 +2435,122 @@ components:
             type: array
             items:
               type: string
-      required:
-      - message
-      - errors
-    BoardMember:
-      required:
-      - id
-      - name
-      - email
-      - role
-      properties:
-        id:
-          type: integer
-          format: int64
-          minimum: 1
-        name:
-          type: string
-        email:
-          type: string
-          format: email
-        role:
-          $ref: '#/components/schemas/BoardRoleKey'
-      type: object
-      additionalProperties: false
-    BoardRoleKey:
-      type: string
-      pattern: ^(owner|editor|viewer|custom-[1-9][0-9]*)$
-    Permissions:
-      type: array
-      items:
-        type: string
-        enum:
-        - board.rename
-        - columns.create
-        - columns.edit
-        - columns.delete
-        - cards.create
-        - cards.edit
-        - cards.move
-        - cards.delete
-        - cards.comment
-        - cards.attach
-      maxItems: 10
-      uniqueItems: true
-    RoleInput:
-      required:
-      - name
-      - permissions
-      properties:
-        name:
-          type: string
-          maxLength: 80
-          minLength: 1
-        permissions:
-          $ref: '#/components/schemas/Permissions'
-      type: object
-      additionalProperties: false
-    CustomRole:
-      required:
-      - id
-      - key
-      - name
-      - permissions
-      properties:
-        id:
-          type: integer
-          minimum: 1
-        key:
-          type: string
-          pattern: ^custom-[1-9][0-9]*$
-        name:
-          type: string
-          maxLength: 80
-          minLength: 1
-        permissions:
-          $ref: '#/components/schemas/Permissions'
-      type: object
-      additionalProperties: false
-    CardLabel:
-      required:
-      - name
-      - color
-      properties:
-        name:
-          type: string
-          maxLength: 50
-          minLength: 1
-        color:
-          type: string
-          pattern: ^#[0-9a-fA-F]{6}$
-      type: object
-      additionalProperties: false
-    CardChecklistItem:
-      required:
-      - id
-      - title
-      - completed
-      properties:
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-          maxLength: 255
-          minLength: 1
-        completed:
-          type: boolean
-      type: object
-      additionalProperties: false
-    CardChecklist:
-      required:
-      - id
-      - title
-      - items
-      properties:
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-          maxLength: 255
-          minLength: 1
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/CardChecklistItem'
-          maxItems: 100
-      type: object
-      additionalProperties: false
-    CardCommentAuthor:
-      required:
-      - id
-      - name
-      properties:
-        id:
-          type: integer
-          format: int64
-          minimum: 1
-        name:
-          type: string
-      type: object
-      nullable: true
-      additionalProperties: false
-    CardComment:
-      required:
-      - id
-      - body
-      - author
-      - created_at
-      properties:
-        id:
-          type: integer
-          format: int64
-          minimum: 1
-        body:
-          type: string
-          maxLength: 10000
-          minLength: 1
-        author:
-          $ref: '#/components/schemas/CardCommentAuthor'
-        created_at:
-          type: string
-          format: date-time
-      type: object
-      additionalProperties: false
-    CardAttachment:
-      required:
-      - id
-      - name
-      - mime_type
-      - size
-      - created_at
-      properties:
-        id:
-          type: integer
-          format: int64
-          minimum: 1
-        name:
-          type: string
-        mime_type:
-          type: string
-        size:
-          type: integer
-          maximum: 10485760
-          minimum: 1
-        created_at:
-          type: string
-          format: date-time
-      type: object
-      additionalProperties: false
-    CardActivity:
-      required:
-      - comments
-      - attachments
-      properties:
-        comments:
-          type: array
-          items:
-            $ref: '#/components/schemas/CardComment'
-        attachments:
-          type: array
-          items:
-            $ref: '#/components/schemas/CardAttachment'
       type: object
       additionalProperties: false
   responses:
     Error401:
-      description: Session missing or expired
+      description: 'Session missing or expired'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
     Error404:
-      description: Resource missing, deleted, outside nested parent, or inaccessible to the current user
+      description: 'Resource missing, deleted, outside nested parent, or inaccessible to the current user'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
     Error409:
-      description: Target gap has changed or move crosses boards
+      description: 'Target gap has changed or move crosses boards'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
     Error419:
-      description: CSRF token missing or expired
+      description: 'CSRF token missing or expired'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
     Error422:
-      description: Invalid request fields, credentials, or requested membership change
+      description: 'Invalid request fields, credentials, or requested membership change'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ValidationError'
     Error403:
-      description: The current user lacks permission for this operation.
+      description: 'The current user lacks permission for this operation.'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+  parameters:
+    board:
+      name: board
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    column:
+      name: column
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    card:
+      name: card
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    CsrfToken:
+      name: X-XSRF-TOKEN
+      in: header
+      description: 'URL-decoded value of the XSRF-TOKEN cookie.'
+      required: true
+      schema:
+        type: string
+  securitySchemes:
+    SanctumSession:
+      type: apiKey
+      name: laravel_session
+      in: cookie
+security:
+  -
+    SanctumSession: []
+tags:
+  -
+    name: Auth
+    description: Auth
+  -
+    name: 'Board members'
+    description: 'Board members'
+  -
+    name: 'Board roles'
+    description: 'Board roles'
+  -
+    name: Boards
+    description: Boards
+  -
+    name: Cards
+    description: Cards
+  -
+    name: Notifications
+    description: Notifications
+  -
+    name: Columns
+    description: Columns
+  -
+    name: Realtime
+    description: Realtime
 x-realtime:
-  transport: Laravel Reverb (Pusher protocol)
-  channel: private-users.{userId}
+  transport: 'Laravel Reverb (Pusher protocol)'
+  channel: 'private-users.{userId}'
   event: board.changed
-  description: Broadcast after a successful commit for board, column and card mutations. Invalidate the board list
-    and refresh the affected open board. After subscription or reconnect, refresh list and current board even when
-    no event was received. Remove a deleted open board on 404.
+  description: 'Broadcast after a successful commit for board, column and card mutations. Invalidate the board list and refresh the affected open board. After subscription or reconnect, refresh list and current board even when no event was received. Remove a deleted open board on 404.'
   payload:
     type: object
     additionalProperties: false
     required:
-    - board_id
+      - board_id
     properties:
       board_id:
         type: integer
         format: int64
         minimum: 1
-tags:
-- name: Auth
-  description: Auth
-- name: Board members
-  description: Board members
-- name: Board roles
-  description: Board roles
-- name: Boards
-  description: Boards
-- name: Cards
-  description: Cards
-- name: Columns
-  description: Columns
-- name: Realtime
-  description: Realtime
